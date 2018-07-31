@@ -19,7 +19,7 @@ k_means = KMeansExperimental(inputs=inp,
                              num_clusters=2,
                              initial_clusters="kmeans_plus_plus",
                              distance_metric='squared_euclidean',
-                             experimental_score=False)
+                             experimental_score=True)
 
 all_scores, cluster_idx, scores, cluster_initialized, init_op, train_op = k_means.training_graph()
 

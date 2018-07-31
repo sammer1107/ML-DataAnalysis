@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 import pandas as pd
 import datetime
-from wine.wine_model_v2 import redwine_v2
+from wine.wine_model_v2 import wine_v2
 
 now = datetime.datetime.now()
 date = "{}-{:0>2}-{:0>2}-{:0>2}:{:0>2}".format(now.year, now.month, now.day, now.hour, now.minute)
@@ -48,7 +48,7 @@ elif MODE == 'eval':
     labels = tf.constant(eval_labels, dtype=tf.int32)
 
 
-fetches = redwine_v2(inputs, labels, learning_rate=LR, mode=MODE)
+fetches = wine_v2(inputs, labels, learning_rate=LR, mode=MODE)
 
 # shape_output = tf.shape(output)
 # shape_label = tf.shape(one_hot_labels)
