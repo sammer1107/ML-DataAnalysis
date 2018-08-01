@@ -7,11 +7,11 @@ from wine.wine_model_v3 import wine_v3_2
 now = datetime.datetime.now()
 date = "{}-{:0>2}-{:0>2}-{:0>2}:{:0>2}".format(now.year, now.month, now.day, now.hour, now.minute)
 MODEL = "wine_model_v3_2"
-MODE = 'eval'
+MODE = 'train'
 LR = 0.0001
-STEPS = 500000
-RESTORE_CHK_POINT = False
-RESTORE_CHK_POINT_PATH = './wine/wine_model_v3_2/checkpoints/2018-08-01-14:09/redwine-10000000'
+STEPS = 100000
+RESTORE_CHK_POINT = True
+RESTORE_CHK_POINT_PATH = './wine/wine_model_v3_2/checkpoints/2018-08-01-20:56/redwine-300000'
 SAVE_CHK_POINT = True
 SAVE_SUMMARY = True
 

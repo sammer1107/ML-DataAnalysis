@@ -1,2 +1,10 @@
 # ipython_checkpoint
 .ipynb_checkpoints
+
+# python cache
+__pycache__
+
+# model summaries and checkpoints
+wine_model
+wine_model_v2
+wine_model_v3_2

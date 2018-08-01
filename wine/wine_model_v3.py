@@ -16,15 +16,20 @@ def wine_v3_2(inputs, labels, learning_rate, mode='train', save_summary=False, s
 
     labels = labels - 3
 
+    # stddev chosen to prevent exploding
     net = tf.layers.dense(inputs, units=8,
-                          activation=tf.nn.tanh,
-                          name='layer1')
+                          activation=tf.nn.leaky_relu,
+                          name='layer1',
+                          kernel_initializer=tf.initializers.random_normal(stddev=2/8))
     net = tf.layers.dense(net, units=8,
-                          activation=tf.nn.tanh,
-                          name='layer2')
+                          activation=tf.nn.leaky_relu,
+                          name='layer2',
+                          kernel_initializer=tf.initializers.random_normal(stddev=2/8)
+                          )
 
     logits = tf.layers.dense(net, units=6,
                              activation=None,
+                             kernel_initializer=tf.initializers.random_normal(stddev=2/8),
                              name='logits')
 
     prediction = tf.argmax(logits, axis=1, output_type=tf.int32)
