@@ -7,11 +7,11 @@ from wine.wine_model_v3 import wine_v3_2
 now = datetime.datetime.now()
 date = "{}-{:0>2}-{:0>2}-{:0>2}:{:0>2}".format(now.year, now.month, now.day, now.hour, now.minute)
 MODEL = "wine_model_v3_2"
-MODE = 'train'
-LR = 0.0003
-STEPS = 5000000
-RESTORE_CHK_POINT = True
-RESTORE_CHK_POINT_PATH = './wine/wine_model_v2_2/checkpoints/2018-08-01-14:09/redwine-10000000'
+MODE = 'eval'
+LR = 0.0001
+STEPS = 500000
+RESTORE_CHK_POINT = False
+RESTORE_CHK_POINT_PATH = './wine/wine_model_v3_2/checkpoints/2018-08-01-14:09/redwine-10000000'
 SAVE_CHK_POINT = True
 SAVE_SUMMARY = True
 
@@ -23,7 +23,7 @@ fetches = wine_v3_2(inputs, labels, LR, mode=MODE, save_summary=SAVE_SUMMARY, sa
 
 if SAVE_CHK_POINT or RESTORE_CHK_POINT:
     saver = tf.train.Saver(max_to_keep=10)
-if SAVE_SUMMARY:
+if SAVE_SUMMARY and MODE != 'eval':
     summary_writer = tf.summary.FileWriter('./wine/{}/summary/{}'.format(MODEL, date), tf.get_default_graph())
 
 with tf.Session() as sess:

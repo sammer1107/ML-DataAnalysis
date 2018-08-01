@@ -45,7 +45,7 @@ def wine_v3_2(inputs, labels, learning_rate, mode='train', save_summary=False, s
     elif mode == 'eval':
         fetches['predict'] = prediction + 3
 
-    if save_summary:
+    if save_summary and mode != 'eval':
         tf.summary.scalar('accuracy', accuracy)
         tf.summary.scalar('average_loss', average_loss)
         tf.summary.scalar('learning_rate', learning_rate)
