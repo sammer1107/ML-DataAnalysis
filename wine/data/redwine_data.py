@@ -5,11 +5,8 @@ import numpy as np
 
 class RedWine(Dataset):
 
-    train_path = 'wine/data/winequality-red-preprocessed-train.csv'
-    eval_path = 'wine/data/winequality-red-preprocessed-eval.csv'
-
-    def __init__(self, subset='train'):
-        super(RedWine, self).__init__(subset)
+    def __init__(self, path, subset='train'):
+        super(RedWine, self).__init__(path, subset)
         self._read_data()
 
     def get_data(self):
@@ -18,5 +15,4 @@ class RedWine(Dataset):
         return data[:,0:-1], data[:,-1]
 
     def _read_data(self):
-        path = self.train_path if self.subset == 'train' else self.eval_path
-        self.df = pd.read_csv(path)
+        self.df = pd.read_csv(self.path)

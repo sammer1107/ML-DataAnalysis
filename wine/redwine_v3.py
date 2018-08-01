@@ -15,7 +15,7 @@ RESTORE_CHK_POINT_PATH = './wine/wine_model_v3_2/checkpoints/2018-08-01-20:56/re
 SAVE_CHK_POINT = True
 SAVE_SUMMARY = True
 
-redwine_data = RedWine(subset=MODE)
+redwine_data = RedWine(path='wine/data/red-filtered-normalized-{}.csv', subset=MODE)
 input_data, label_data = redwine_data.get_data()
 inputs = tf.constant(input_data, dtype=tf.float32)
 labels = tf.constant(label_data, dtype=tf.int32)
