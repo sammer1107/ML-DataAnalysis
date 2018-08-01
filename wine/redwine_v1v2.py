@@ -90,13 +90,13 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=True)) as sess:
         if SAVE_CHK_POINT:
             prefix = './{}/checkpoints/{}'.format(model_name, date)
             saver.save(sess, prefix + '/redwine', global_step=out['global_step'])
-            with open(prefix + '/info', "w+") as f:
-                f.write("continued from {} checkpoint".format(RESTORE_CHK_POINT_PATH))
+            if RESTORE_CHK_POINT:
+                with open(prefix + '/info', "w+") as f:
+                    f.write("continued from {} checkpoint".format(RESTORE_CHK_POINT_PATH))
 
     elif MODE == 'eval':
         out = sess.run(fetches)
         predict_out = np.array(out['predict'], dtype=np.float32)
         for i,prediction in enumerate(predict_out):
             print('{} answer: {}\tprediction: {}'.format(i, eval_labels[i]+3, prediction+3))
-        num_correct = np.count_nonzero(predict_out == eval_labels)
         print(out['accuracy'])

@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 
-def wine_v3_2(inputs, labels, learning_rate, mode='train'):
+def wine_v3_2(inputs, labels, learning_rate, mode='train', save_summary=False, save_checkpoint=True):
     """ The input of this model is designed to be 8 attributes
     selected from 11 original attribute,this is why i used 8
     units for dense layers. This model consisted of input, 2
@@ -34,7 +34,8 @@ def wine_v3_2(inputs, labels, learning_rate, mode='train'):
 
     if mode == 'train':
         loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=labels, name='softmax')
-        fetches['average_loss'] = tf.reduce_mean(loss)
+        average_loss = tf.reduce_mean(loss)
+        fetches['average_loss'] = average_loss
 
         global_step = tf.Variable(0, trainable=False, name="global_step", dtype=tf.int32)
         opt = tf.train.RMSPropOptimizer(learning_rate=learning_rate)
@@ -43,6 +44,14 @@ def wine_v3_2(inputs, labels, learning_rate, mode='train'):
         fetches['global_step'] = global_step
     elif mode == 'eval':
         fetches['predict'] = prediction + 3
+
+    if save_summary:
+        tf.summary.scalar('accuracy', accuracy)
+        tf.summary.scalar('average_loss', average_loss)
+        tf.summary.scalar('learning_rate', learning_rate)
+        for tensor in tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES):
+            tf.summary.histogram(tensor.name, tensor, family='trainable')
+        fetches['summary_all'] = tf.summary.merge_all()
 
     return fetches
 
