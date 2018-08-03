@@ -10,12 +10,12 @@ MODEL = "wine_model_v3_2"
 MODE = 'train'
 LR = 0.0001
 STEPS = 100000
-RESTORE_CHK_POINT = True
+RESTORE_CHK_POINT = False
 RESTORE_CHK_POINT_PATH = './wine/wine_model_v3_2/checkpoints/2018-08-01-20:56/redwine-300000'
 SAVE_CHK_POINT = True
 SAVE_SUMMARY = True
 
-redwine_data = RedWine(path='wine/data/red-filtered-normalized-{}.csv', subset=MODE)
+redwine_data = RedWine(path='wine/data/red-filtered-standardized-{}.csv', subset=MODE)
 input_data, label_data = redwine_data.get_data()
 inputs = tf.constant(input_data, dtype=tf.float32)
 labels = tf.constant(label_data, dtype=tf.int32)

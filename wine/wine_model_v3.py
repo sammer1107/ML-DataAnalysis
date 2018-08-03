@@ -24,8 +24,7 @@ def wine_v3_2(inputs, labels, learning_rate, mode='train', save_summary=False, s
     net = tf.layers.dense(net, units=8,
                           activation=tf.nn.leaky_relu,
                           name='layer2',
-                          kernel_initializer=tf.initializers.random_normal(stddev=2/8)
-                          )
+                          kernel_initializer=tf.initializers.random_normal(stddev=2/8))
 
     logits = tf.layers.dense(net, units=6,
                              activation=None,
