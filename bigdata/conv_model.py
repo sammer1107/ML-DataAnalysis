@@ -10,7 +10,6 @@ def conv_model(inputs, targets, learning_rate, mode='train', save_summary=False)
     assert mode in ['train', 'eval'], "mode should be one of ['train', 'eval']"
 
     fetches = {}
-
     net = tf.layers.conv2d(inputs, filters=8,
                            kernel_size=[10, 4],
                            activation=tf.nn.leaky_relu,
@@ -35,7 +34,9 @@ def conv_model(inputs, targets, learning_rate, mode='train', save_summary=False)
         if save_summary:
             tf.summary.scalar('learning_rate', learning_rate)
             tf.summary.scalar('loss', loss)
+            with tf.variable_scope('conv1', reuse=True):
+                kernel = tf.get_variable('kernel')
+            tf.summary.image('kernels', tf.transpose(kernel, [3,0,1,2]), max_outputs=8)
             fetches['summary_all'] = tf.summary.merge_all()
-
     return fetches
 
