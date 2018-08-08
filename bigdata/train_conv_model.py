@@ -8,17 +8,19 @@ date = "{}-{:0>2}-{:0>2}-{:0>2}:{:0>2}".format(now.year, now.month, now.day, now
 MODEL = "conv_model"
 MODE = 'train'
 LR = 0.001
-STEPS = 30
+STEPS = 1000
 RESTORE_CHK_POINT = False
-RESTORE_CHK_POINT_PATH = ''
+RESTORE_CHK_POINT_PATH = 'bigdata/conv_model/checkpoints/2018-08-08-13:40/conv_model-1000'
 SAVE_CHK_POINT = False
 SAVE_SUMMARY = False
 
+if MODE == 'eval':
+    assert RESTORE_CHK_POINT, 'eval mode should be start from a trained model checkpoint'
 
 dataset = ThuDataset("bigdata/preprocessed_data/{}/", MODE)
-inputs, targets = dataset.get_data()
-inputs = tf.constant(inputs, dtype=tf.float32)
-targets = tf.constant(targets, dtype=tf.float32)
+oinputs, otargets = dataset.get_data()
+inputs = tf.constant(oinputs, dtype=tf.float32)
+targets = tf.constant(otargets, dtype=tf.float32)
 fetches = conv_model(inputs, targets, LR, save_summary=SAVE_SUMMARY)
 
 if SAVE_CHK_POINT or RESTORE_CHK_POINT:
@@ -36,9 +38,8 @@ with tf.Session() as sess:
     if MODE == 'train':
         out = {}
         for i in range(STEPS):
-            print(sess.run(['conv1/kernel:0']))
             out = sess.run(fetches)
-            if (i+1) % 1 == 0:
+            if (i+1) % 100 == 0:
                 print('step: {},\t loss:{}'.format(out['global_step'], out['loss']))
 
                 if SAVE_SUMMARY:
@@ -52,7 +53,9 @@ with tf.Session() as sess:
     elif MODE == 'eval':
         out = sess.run(fetches)
 
+    print('outputs:\n',out['outputs'])
     print('relative error:\n', out['relative_error'])
     print('squared error:\n', out['squared_error'])
+    print('original input:\n', otargets)
 
 print('Done')
