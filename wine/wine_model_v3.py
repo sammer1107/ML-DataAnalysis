@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 
-def wine_v3_2(inputs, labels, learning_rate, mode='train', save_summary=False, save_checkpoint=True):
+def wine_v3_2(inputs, labels, learning_rate, mode='train', save_summary=False):
     """ The input of this model is designed to be 8 attributes
     selected from 11 original attribute,this is why i used 8
     units for dense layers. This model consisted of input, 2

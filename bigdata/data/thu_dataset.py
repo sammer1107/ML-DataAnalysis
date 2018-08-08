@@ -13,7 +13,7 @@ class ThuDataset(Dataset):
         self._read_data()
 
     def get_data(self):
-        return self.attrs, self.targets
+        return np.expand_dims(self.attrs, axis=3), self.targets
 
     def _read_data(self):
         self.attrs = []
