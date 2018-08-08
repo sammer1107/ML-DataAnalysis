@@ -7,3 +7,6 @@ For more information, just check out the file.
 
 ## wine
 Contains dataset of wine-quality from UCI machine learning dataset repository and models learning the dataset.
+
+## bigdata
+Competition dataset and experimental models for Thu Bigdata Analysis Competition
