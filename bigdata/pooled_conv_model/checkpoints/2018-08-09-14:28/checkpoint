@@ -1,0 +1,6 @@
+model_checkpoint_path: "conv_model-400000"
+all_model_checkpoint_paths: "conv_model-320000"
+all_model_checkpoint_paths: "conv_model-340000"
+all_model_checkpoint_paths: "conv_model-360000"
+all_model_checkpoint_paths: "conv_model-380000"
+all_model_checkpoint_paths: "conv_model-400000"

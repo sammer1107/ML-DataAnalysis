@@ -40,3 +40,68 @@ def conv_model(inputs, targets, learning_rate, mode='train', save_summary=False)
             fetches['summary_all'] = tf.summary.merge_all()
     return fetches
 
+
+def pooled_conv_model(inputs, targets, learning_rate, learning_rate_decay=0.97, mode='train', save_summary=False):
+    """This is a modified experimental model for Thu Dataset,
+    this uses a big pooling first in order to simplify the feature
+    the input should be in shape [batch_size, 7500, 4, 1]
+    preprocessed from thu_dataset.py """
+
+    assert mode in ['train', 'eval'], "mode should be one of ['train', 'eval']"
+
+    fetches = {}
+
+    net = tf.layers.average_pooling2d(inputs, pool_size=[375,1],
+                                      strides=[375,1],
+                                      name='pooling')
+
+    net = tf.layers.conv2d(net, filters=5,
+                           kernel_size=[4,4],
+                           strides=[4,1],
+                           name='conv1')
+    net = tf.squeeze(net, axis=[2])
+
+    net = tf.layers.conv1d(net, filters=5,
+                           kernel_size=5,
+                           name='conv2')
+    net = tf.squeeze(net, axis=[1])
+
+    outputs = tf.layers.dense(net, 1, name='output')
+    outputs = tf.reshape(outputs,[-1])
+
+    fetches['outputs'] = outputs
+    fetches['relative_error'] = (outputs - targets) / targets
+    fetches['squared_error'] = tf.square(outputs - targets)
+    loss = tf.losses.mean_squared_error(outputs, targets)
+    fetches['loss'] = loss
+
+    if mode == 'train':
+        global_step = tf.Variable(0, trainable=False)
+        learning_rate = tf.train.exponential_decay(learning_rate, global_step, decay_steps=5000,
+                                                   decay_rate=learning_rate_decay,
+                                                   name='decayed_learning_rate',
+                                                   staircase=True)
+        opt = tf.train.MomentumOptimizer(learning_rate, momentum=0.8)
+        train_op = opt.minimize(loss, global_step=global_step)
+        fetches['global_step'] = global_step
+        fetches['train_op'] = train_op
+
+        if save_summary:
+            tf.summary.scalar('learning_rate', learning_rate)
+            tf.summary.scalar('loss', loss)
+            with tf.variable_scope('conv1', reuse=True):
+                kernel = tf.get_variable('kernel')
+                tf.summary.image('kernels', tf.transpose(kernel, [3,0,1,2]), max_outputs=5)
+            fetches['summary_all'] = tf.summary.merge_all()
+
+    return fetches
+
+
+# from bigdata.data.thu_dataset import ThuDataset
+# dataset = ThuDataset('bigdata/preprocessed_data/{}/')
+# inputs, targets = dataset.get_data()
+# inputs = tf.constant(inputs, dtype=tf.float32)
+# targets = tf.constant(targets, dtype=tf.float32)
+# fetch = pooled_conv_model(inputs, targets, 0.001)
+# with tf.Session() as sess:
+#     print(sess.run(fetch))
