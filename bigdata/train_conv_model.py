@@ -8,10 +8,11 @@ now = datetime.datetime.now()
 date = "{}-{:0>2}-{:0>2}-{:0>2}:{:0>2}".format(now.year, now.month, now.day, now.hour, now.minute)
 MODEL = "pooled_conv_model"
 MODE = 'train'
-LR = 0.05
+LR = 20.0
+LR_DECAY = 0.96
 STEPS = 100000
 RESTORE_CHK_POINT = True
-RESTORE_CHK_POINT_PATH = 'bigdata/pooled_conv_model/checkpoints/2018-08-09-14:32/conv_model-500000'
+RESTORE_CHK_POINT_PATH = 'bigdata/pooled_conv_model/checkpoints/2018-08-09-16:38/conv_model-1300000'
 SAVE_CHK_POINT = True
 SAVE_CHK_POINT_STEP = 20000
 SAVE_SUMMARY = True
@@ -27,7 +28,7 @@ def main():
     oinputs, otargets = dataset.get_data()
     inputs = tf.constant(oinputs, dtype=tf.float32)
     targets = tf.constant(otargets, dtype=tf.float32)
-    fetches = pooled_conv_model(inputs, targets, LR, save_summary=SAVE_SUMMARY)
+    fetches = pooled_conv_model(inputs, targets, LR, learning_rate_decay=LR_DECAY, save_summary=SAVE_SUMMARY)
 
     if SAVE_CHK_POINT or RESTORE_CHK_POINT:
         saver = tf.train.Saver()
@@ -67,9 +68,9 @@ def main():
 
 
 def pretty_print(x):
-    repr = np.array_repr(x)
-    repr = repr.replace(' ','').replace('\n','')[7:-16]
-    splits = np.array(repr.split(',')).astype(np.float32)
+    repr_str = np.array_repr(x)
+    repr_str = repr_str.replace(' ','').replace('\n','')[7:-16]
+    splits = np.array(repr_str.split(',')).astype(np.float32)
     template = '{:+.5f},\t'*(len(splits)-1) + '{:+5f}'
     formatted = template.format(*splits)
     return formatted
