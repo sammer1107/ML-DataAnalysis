@@ -2,3 +2,6 @@
 .ipynb_checkpoints
 # example
 result_example.zip 
+
+# model checkpoints and summaries
+pooled_conv_model
