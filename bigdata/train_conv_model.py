@@ -2,21 +2,25 @@ import tensorflow as tf
 import datetime
 import numpy as np
 from bigdata.data.thu_dataset import ThuDataset
-from bigdata.conv_model import pooled_conv_model
+from bigdata.conv_model import *
 
 now = datetime.datetime.now()
 date = "{}-{:0>2}-{:0>2}-{:0>2}:{:0>2}".format(now.year, now.month, now.day, now.hour, now.minute)
-MODEL = "pooled_conv_model"
+MODEL = "pooled_conv_model_m"
 MODE = 'train'
-LR = 20.0
-LR_DECAY = 0.96
-STEPS = 100000
+LR = 0.04
+LR_DECAY = 1.0
+STEPS = 500000
 RESTORE_CHK_POINT = True
-RESTORE_CHK_POINT_PATH = 'bigdata/pooled_conv_model/checkpoints/2018-08-09-16:38/conv_model-1300000'
+RESTORE_CHK_POINT_PATH = 'bigdata/pooled_conv_model_m/checkpoints/2018-08-12-17:49/conv_model-1000000'
 SAVE_CHK_POINT = True
-SAVE_CHK_POINT_STEP = 20000
+SAVE_CHK_POINT_STEP = 50000
 SAVE_SUMMARY = True
-CHECKPOINT_PATH = './bigdata/{}/checkpoints/{}'.format(MODEL, date)
+
+if RESTORE_CHK_POINT:
+    CHECKPOINT_PATH = RESTORE_CHK_POINT_PATH.rsplit('-')[0]
+else:
+    CHECKPOINT_PATH = './bigdata/{}/checkpoints/{}'.format(MODEL, date)
 
 if MODE == 'eval':
     assert RESTORE_CHK_POINT, 'eval mode should be start from a trained model checkpoint'
@@ -28,7 +32,7 @@ def main():
     oinputs, otargets = dataset.get_data()
     inputs = tf.constant(oinputs, dtype=tf.float32)
     targets = tf.constant(otargets, dtype=tf.float32)
-    fetches = pooled_conv_model(inputs, targets, LR, learning_rate_decay=LR_DECAY, save_summary=SAVE_SUMMARY)
+    fetches = pooled_conv_model_m(inputs, targets, LR, learning_rate_decay=LR_DECAY, save_summary=SAVE_SUMMARY)
 
     if SAVE_CHK_POINT or RESTORE_CHK_POINT:
         saver = tf.train.Saver()
@@ -36,7 +40,6 @@ def main():
         summary_writer = tf.summary.FileWriter('./bigdata/{}/summary/{}'.format(MODEL, date), tf.get_default_graph())
 
     with tf.Session() as sess:
-
         if RESTORE_CHK_POINT:
             saver.restore(sess, RESTORE_CHK_POINT_PATH)
             print('restore variables from ', RESTORE_CHK_POINT_PATH)
@@ -47,7 +50,7 @@ def main():
             for i in range(STEPS):
                 out = sess.run(fetches)
                 if (i+1) % 100 == 0:
-                    print('step: {},\t loss:{}'.format(out['global_step'], out['loss']))
+                    print('step: {},\t loss:{:.10f}'.format(out['global_step'], out['loss']))
                     if SAVE_SUMMARY:
                         summary_writer.add_summary(out['summary_all'], global_step=out['global_step'])
                 if SAVE_CHK_POINT and (i+1) % SAVE_CHK_POINT_STEP == 0 :
@@ -58,6 +61,7 @@ def main():
                     f.write("continued from {} checkpoint".format(RESTORE_CHK_POINT_PATH))
         elif MODE == 'eval':
             out = sess.run(fetches)
+            print('average loss: ', out['loss'])
 
         print('original input:\n', pretty_print(otargets))
         print('outputs:\n', pretty_print(out['outputs']))
