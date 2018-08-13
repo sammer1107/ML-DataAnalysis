@@ -6,13 +6,13 @@ from bigdata.conv_model import *
 
 now = datetime.datetime.now()
 date = "{}-{:0>2}-{:0>2}-{:0>2}:{:0>2}".format(now.year, now.month, now.day, now.hour, now.minute)
-MODEL = "pooled_conv_model_m"
+MODEL = "pooled_conv_model"
 MODE = 'eval'
-LR = 0.05
+LR = 0.005
 LR_DECAY = 0.99
-STEPS = 200000
+STEPS = 500000
 RESTORE_CHK_POINT = True
-RESTORE_CHK_POINT_PATH = 'bigdata/pooled_conv_model_m/checkpoints/2018-08-13-19:06/conv_model-400000'
+RESTORE_CHK_POINT_PATH = 'bigdata/pooled_conv_model/checkpoints/2018-08-13-21:22-absloss/conv_model-500000'
 SAVE_CHK_POINT = True
 SAVE_CHK_POINT_STEP = 50000
 SAVE_SUMMARY = True
@@ -22,6 +22,7 @@ if RESTORE_CHK_POINT:
     SUMMARY_PATH = './bigdata/{}/summary/{}'.format(MODEL, RESTORE_CHK_POINT_PATH.rsplit('/')[-2])
 else:
     CHECKPOINT_PATH = './bigdata/{}/checkpoints/{}'.format(MODEL, date)
+    SUMMARY_PATH = './bigdata/{}/summary/{}'.format(MODEL, date)
 
 if MODE == 'eval':
     assert RESTORE_CHK_POINT, 'eval mode should be start from a trained model checkpoint'
@@ -33,12 +34,12 @@ def main():
     oinputs, otargets = dataset.get_data()
     inputs = tf.constant(oinputs, dtype=tf.float32)
     targets = tf.constant(otargets, dtype=tf.float32)
-    fetches = pooled_conv_model_m(inputs, targets, LR, learning_rate_decay=LR_DECAY, save_summary=SAVE_SUMMARY)
+    fetches = pooled_conv_model(inputs, targets, LR, learning_rate_decay=LR_DECAY, save_summary=SAVE_SUMMARY)
 
     if SAVE_CHK_POINT or RESTORE_CHK_POINT:
         saver = tf.train.Saver(max_to_keep=10)
     if SAVE_SUMMARY and MODE != 'eval':
-        summary_writer = tf.summary.FileWriter('./bigdata/{}/summary/{}'.format(MODEL, date), tf.get_default_graph())
+        summary_writer = tf.summary.FileWriter(SUMMARY_PATH, tf.get_default_graph())
 
     with tf.Session() as sess:
         if RESTORE_CHK_POINT:
@@ -68,6 +69,8 @@ def main():
         print('outputs:\n', pretty_print(out['outputs']))
         print('relative error:\n', pretty_print(out['relative_error']))
         print('squared error:\n', pretty_print(out['squared_error']))
+        exp_squared = np.square(np.exp(otargets)-np.exp(out['outputs']))
+        print('exp squared error:\n', pretty_print(exp_squared))
         # print('original input:\n', pretty_print(np.exp(otargets)))
         # print('outputs:\n', pretty_print(np.exp(out['outputs'])))
 

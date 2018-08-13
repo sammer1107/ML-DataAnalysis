@@ -55,14 +55,14 @@ def pooled_conv_model(inputs, targets, learning_rate, learning_rate_decay=0.97, 
                                       strides=[375,1],
                                       name='pooling')
 
-    net = tf.layers.conv2d(net, filters=5,
+    net = tf.layers.conv2d(net, filters=3,
                            kernel_size=[4,4],
                            strides=[4,1],
                            name='conv1',
                            activation=tf.nn.leaky_relu)
     net = tf.squeeze(net, axis=[2])
 
-    net = tf.layers.conv1d(net, filters=5,
+    net = tf.layers.conv1d(net, filters=1,
                            kernel_size=5,
                            name='conv2',
                            activation=tf.nn.leaky_relu)
@@ -75,6 +75,7 @@ def pooled_conv_model(inputs, targets, learning_rate, learning_rate_decay=0.97, 
     fetches['relative_error'] = (outputs - targets) / targets
     fetches['squared_error'] = tf.square(outputs - targets)
     loss = tf.losses.mean_squared_error(outputs, targets)
+    # loss = tf.reduce_mean(tf.abs(outputs - targets))
     fetches['loss'] = loss
 
     if mode == 'train':
