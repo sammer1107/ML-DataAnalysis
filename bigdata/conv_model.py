@@ -58,12 +58,14 @@ def pooled_conv_model(inputs, targets, learning_rate, learning_rate_decay=0.97, 
     net = tf.layers.conv2d(net, filters=5,
                            kernel_size=[4,4],
                            strides=[4,1],
-                           name='conv1')
+                           name='conv1',
+                           activation=tf.nn.leaky_relu)
     net = tf.squeeze(net, axis=[2])
 
     net = tf.layers.conv1d(net, filters=5,
                            kernel_size=5,
-                           name='conv2')
+                           name='conv2',
+                           activation=tf.nn.leaky_relu)
     net = tf.squeeze(net, axis=[1])
 
     outputs = tf.layers.dense(net, 1, name='output')
@@ -112,15 +114,17 @@ def pooled_conv_model_m(inputs, targets, learning_rate, learning_rate_decay=0.97
                                       strides=[375,1],
                                       name='pooling')
 
-    net = tf.layers.conv2d(net, filters=3,
+    net = tf.layers.conv2d(net, filters=2,
                            kernel_size=[4,4],
                            strides=[1,1],
-                           name='conv1')
+                           name='conv1',
+                           activation=tf.nn.leaky_relu)
     net = tf.squeeze(net, axis=[2])
 
-    net = tf.layers.conv1d(net, filters=3,
+    net = tf.layers.conv1d(net, filters=1,
                            kernel_size=3,
-                           name='conv2')
+                           name='conv2',
+                           activation=tf.nn.leaky_relu)
     net = tf.reduce_mean(net, axis=1, name='mean')
 
     outputs = tf.layers.dense(net, 1, name='output')

@@ -26,3 +26,5 @@ class ThuDataset(Dataset):
 
         self.attrs = np.array(self.attrs)
         self.targets = np.array(self.targets)
+
+
