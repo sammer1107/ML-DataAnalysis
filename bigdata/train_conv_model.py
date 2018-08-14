@@ -7,12 +7,13 @@ from bigdata.conv_model import *
 now = datetime.datetime.now()
 date = "{}-{:0>2}-{:0>2}-{:0>2}:{:0>2}".format(now.year, now.month, now.day, now.hour, now.minute)
 MODEL = "pooled_conv_model"
+note = 'tanh8+1'
 MODE = 'eval'
 LR = 0.005
 LR_DECAY = 0.99
-STEPS = 500000
+STEPS = 200000
 RESTORE_CHK_POINT = True
-RESTORE_CHK_POINT_PATH = 'bigdata/pooled_conv_model/checkpoints/2018-08-13-21:22-absloss/conv_model-500000'
+RESTORE_CHK_POINT_PATH = 'bigdata/pooled_conv_model/checkpoints/2018-08-14-16:18-tanh8+1/conv_model-500000'
 SAVE_CHK_POINT = True
 SAVE_CHK_POINT_STEP = 50000
 SAVE_SUMMARY = True
@@ -21,8 +22,8 @@ if RESTORE_CHK_POINT:
     CHECKPOINT_PATH = RESTORE_CHK_POINT_PATH.rsplit('/',1)[0]
     SUMMARY_PATH = './bigdata/{}/summary/{}'.format(MODEL, RESTORE_CHK_POINT_PATH.rsplit('/')[-2])
 else:
-    CHECKPOINT_PATH = './bigdata/{}/checkpoints/{}'.format(MODEL, date)
-    SUMMARY_PATH = './bigdata/{}/summary/{}'.format(MODEL, date)
+    CHECKPOINT_PATH = './bigdata/{}/checkpoints/{}-{}'.format(MODEL, date, note)
+    SUMMARY_PATH = './bigdata/{}/summary/{}-{}'.format(MODEL, date, note)
 
 if MODE == 'eval':
     assert RESTORE_CHK_POINT, 'eval mode should be start from a trained model checkpoint'
@@ -55,7 +56,7 @@ def main():
                     print('step: {: >7},\t loss:{:.5E}'.format(out['global_step'], out['loss']))
                     if SAVE_SUMMARY:
                         summary_writer.add_summary(out['summary_all'], global_step=out['global_step'])
-                if SAVE_CHK_POINT and (i+1) % SAVE_CHK_POINT_STEP == 0 :
+                if SAVE_CHK_POINT and (i+1) % SAVE_CHK_POINT_STEP == 0:
                     saver.save(sess, CHECKPOINT_PATH + '/conv_model', global_step=out['global_step'])
             # no longer needed
             # if SAVE_CHK_POINT and RESTORE_CHK_POINT:
@@ -63,14 +64,15 @@ def main():
             #         f.write("continued from {} checkpoint".format(RESTORE_CHK_POINT_PATH))
         elif MODE == 'eval':
             out = sess.run(fetches)
-            print('average loss: ', out['loss'])
 
         print('original input:\n', pretty_print(otargets))
         print('outputs:\n', pretty_print(out['outputs']))
-        print('relative error:\n', pretty_print(out['relative_error']))
-        print('squared error:\n', pretty_print(out['squared_error']))
-        exp_squared = np.square(np.exp(otargets)-np.exp(out['outputs']))
-        print('exp squared error:\n', pretty_print(exp_squared))
+        print('error:\n', pretty_print(out['outputs']-otargets))
+        exp_error = np.exp(otargets)-np.exp(out['outputs'])
+        print('exp error:\n', pretty_print(exp_error))
+        print('average exp error:\n', np.mean(np.abs(exp_error)))
+        print('RMSE: ', np.sqrt(out['loss']))
+        print('exp RMSE:\n', np.sqrt(np.mean(np.square(exp_error))))
         # print('original input:\n', pretty_print(np.exp(otargets)))
         # print('outputs:\n', pretty_print(np.exp(out['outputs'])))
 
@@ -86,4 +88,5 @@ def pretty_print(x):
     return formatted
 
 
-main()
+if __name__ == '__main__':
+    main()
