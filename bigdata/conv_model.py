@@ -244,11 +244,11 @@ def pooled_conv2d_model_250(inputs, targets, learning_rate, learning_rate_decay=
     assert mode in ['train', 'eval'], "mode should be one of ['train', 'eval']"
 
     fetches = {}
-    if mode == 'train':
-        inputs, targets = tf.train.shuffle_batch([inputs, targets], batch_size=8, capacity=320,
-                                                 min_after_dequeue=160,
-                                                 enqueue_many=True,
-                                                 name='batch')
+    # if mode == 'train':
+    #     inputs, targets = tf.train.shuffle_batch([inputs, targets], batch_size=8, capacity=320,
+    #                                              min_after_dequeue=160,
+    #                                              enqueue_many=True,
+    #                                              name='batch')
 
     net = tf.layers.average_pooling2d(inputs, pool_size=[250, 1],
                                       strides=[250, 1],
@@ -287,7 +287,7 @@ def pooled_conv2d_model_250(inputs, targets, learning_rate, learning_rate_decay=
                                                    decay_rate=learning_rate_decay,
                                                    name='decayed_learning_rate',
                                                    staircase=True)
-        opt = tf.train.RMSPropOptimizer(learning_rate)
+        opt = tf.train.MomentumOptimizer(learning_rate, momentum=0.9)
         train_op = opt.minimize(loss, global_step=global_step)
         fetches['global_step'] = global_step
         fetches['train_op'] = train_op
