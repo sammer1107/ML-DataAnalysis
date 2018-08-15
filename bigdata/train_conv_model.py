@@ -2,18 +2,19 @@ import tensorflow as tf
 import datetime
 import numpy as np
 from bigdata.data.thu_dataset import ThuDataset
-from bigdata.conv_model import *
+from bigdata import conv_model
 
 now = datetime.datetime.now()
 date = "{}-{:0>2}-{:0>2}-{:0>2}:{:0>2}".format(now.year, now.month, now.day, now.hour, now.minute)
-MODEL = "pooled_conv_model"
-note = 'tanh8+1'
-MODE = 'eval'
-LR = 0.005
+MODEL = "pooled_conv2d_model"
+note = '5+1-RMS-max'
+MODE = "train"
+LR = 0.000005
 LR_DECAY = 0.99
-STEPS = 200000
+STEPS = 100000
 RESTORE_CHK_POINT = True
-RESTORE_CHK_POINT_PATH = 'bigdata/pooled_conv_model/checkpoints/2018-08-14-16:18-tanh8+1/conv_model-500000'
+RESTORE_CHK_POINT_PATH = \
+    'bigdata/pooled_conv2d_model/checkpoints/2018-08-15-16:48-5+1-RMS-max/conv_model-200000'
 SAVE_CHK_POINT = True
 SAVE_CHK_POINT_STEP = 50000
 SAVE_SUMMARY = True
@@ -35,7 +36,8 @@ def main():
     oinputs, otargets = dataset.get_data()
     inputs = tf.constant(oinputs, dtype=tf.float32)
     targets = tf.constant(otargets, dtype=tf.float32)
-    fetches = pooled_conv_model(inputs, targets, LR, learning_rate_decay=LR_DECAY, save_summary=SAVE_SUMMARY)
+    model = getattr(conv_model, MODEL)
+    fetches = model(inputs, targets, LR, learning_rate_decay=LR_DECAY, save_summary=SAVE_SUMMARY)
 
     if SAVE_CHK_POINT or RESTORE_CHK_POINT:
         saver = tf.train.Saver(max_to_keep=10)
@@ -53,7 +55,7 @@ def main():
             for i in range(STEPS):
                 out = sess.run(fetches)
                 if (i+1) % 100 == 0:
-                    print('step: {: >7},\t loss:{:.5E}'.format(out['global_step'], out['loss']))
+                    print('step: {: >7},\t loss: {:.5E}'.format(out['global_step'], out['loss']))
                     if SAVE_SUMMARY:
                         summary_writer.add_summary(out['summary_all'], global_step=out['global_step'])
                 if SAVE_CHK_POINT and (i+1) % SAVE_CHK_POINT_STEP == 0:

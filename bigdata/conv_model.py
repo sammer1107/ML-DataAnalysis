@@ -173,8 +173,8 @@ def pooled_conv2d_model(inputs, targets, learning_rate, learning_rate_decay=0.97
 
     fetches = {}
 
-    net = tf.layers.average_pooling2d(inputs, pool_size=[375,1],
-                                      strides=[375,1],
+    net = tf.layers.average_pooling2d(inputs, pool_size=[375, 1],
+                                      strides=[375, 1],
                                       name='pooling')
 
     net = tf.layers.conv2d(net, filters=5,
@@ -199,12 +199,12 @@ def pooled_conv2d_model(inputs, targets, learning_rate, learning_rate_decay=0.97
     fetches['loss'] = loss
 
     if mode == 'train':
-        global_step = tf.Variable(0, trainable=False)
+        global_step = tf.Variable(0, trainable=False, name='global_step')
         learning_rate = tf.train.exponential_decay(learning_rate, global_step, decay_steps=10000,
                                                    decay_rate=learning_rate_decay,
                                                    name='decayed_learning_rate',
                                                    staircase=True)
-        opt = tf.train.RMSPropOptimizer(learning_rate, decay=0.9, momentum=0.8)
+        opt = tf.train.RMSPropOptimizer(learning_rate)
         train_op = opt.minimize(loss, global_step=global_step)
         fetches['global_step'] = global_step
         fetches['train_op'] = train_op
@@ -214,10 +214,17 @@ def pooled_conv2d_model(inputs, targets, learning_rate, learning_rate_decay=0.97
             tf.summary.scalar('loss', loss)
             with tf.variable_scope('conv1', reuse=True):
                 kernel = tf.get_variable('kernel')
-            tf.summary.image('kernels', tf.transpose(kernel, [3,0,1,2]), max_outputs=10, family='conv1')
+                kernel = tf.transpose(kernel, [3,0,1,2])
+                kernel = tf.concat(tf.unstack(kernel, axis=0),axis=1)
+                kernel = tf.expand_dims(kernel, axis=0)
+            tf.summary.image('kernels', kernel, max_outputs=10, family='conv1')
             with tf.variable_scope('conv2', reuse=True):
-                kernel = tf.get_variable('kernel')
-            tf.summary.image('kernels', tf.transpose(kernel, [3,0,1,2], max_outputs=10, family='conv2'))
+                kernels = tf.get_variable('kernel')
+                tf.shape(kernels,'shape')
+            for i, kernel in enumerate(tf.unstack(kernels, axis=3)):
+                kernel = tf.transpose(kernel, [2,0,1])
+                kernel = tf.expand_dims(kernel, axis=3)
+                tf.summary.image('kernel_{}'.format(i), kernel, max_outputs=10, family='conv2')
             fetches['summary_all'] = tf.summary.merge_all()
 
     return fetches
@@ -228,6 +235,7 @@ def pooled_conv2d_model(inputs, targets, learning_rate, learning_rate_decay=0.97
 # inputs, targets = dataset.get_data()
 # inputs = tf.constant(inputs, dtype=tf.float32)
 # targets = tf.constant(targets, dtype=tf.float32)
-# fetch = pooled_conv2d_model(inputs, targets, 0.001)
+# fetch = pooled_conv2d_model(inputs, targets, 0.001, save_summary=True)
+#
 # with tf.Session() as sess:
-#     print(sess.run('shape:0'))
+#     print(sess.run('conv2_1/shape:0'))

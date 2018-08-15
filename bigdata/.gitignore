@@ -6,4 +6,5 @@ result_example.zip
 # model checkpoints and summaries
 conv_model
 pooled_conv_model
+pooled_conv2d_model
 pooled_conv_model_m
