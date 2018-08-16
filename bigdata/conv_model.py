@@ -393,7 +393,7 @@ def pooled_conv2d_model_2506(inputs, targets, learning_rate, learning_rate_decay
                                                    decay_rate=learning_rate_decay,
                                                    name='decayed_learning_rate',
                                                    staircase=True)
-        opt = tf.train.MomentumOptimizer(learning_rate, momentum=0.9)
+        opt = tf.train.MomentumOptimizer(learning_rate, momentum=0.9, use_nesterov=True)
         train_op = opt.minimize(loss, global_step=global_step)
         fetches['global_step'] = global_step
         fetches['train_op'] = train_op
@@ -409,6 +409,9 @@ def pooled_conv2d_model_2506(inputs, targets, learning_rate, learning_rate_decay
                 kernel = tf.concat(tf.unstack(kernel, axis=3),axis=1)
                 kernel = tf.expand_dims(kernel, axis=0)
             tf.summary.image('kernels', kernel, max_outputs=10, family='conv1')
+            # trainable variables
+            for tensor in tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES):
+                tf.summary.histogram(tensor.name, tensor, family='trainables')
             # conv2 summary
             # with tf.variable_scope('conv2', reuse=True):
             #     kernel = tf.get_variable('kernel')
