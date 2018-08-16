@@ -176,12 +176,19 @@ def pooled_conv2d_model(inputs, targets, learning_rate, learning_rate_decay=0.97
     net = tf.layers.average_pooling2d(inputs, pool_size=[375, 1],
                                       strides=[375, 1],
                                       name='pooling')
+    if save_summary:
+        tf.summary.image('AvgPooling', net, family='outputs')
 
     net = tf.layers.conv2d(net, filters=5,
                            kernel_size=[4,1],
                            strides=[4,1],
                            name='conv1',
                            activation=tf.nn.tanh)
+    if save_summary:
+        with tf.variable_scope('conv1', reuse=True):
+            filter = tf.get_variable('kernel')
+            deconv = tf.nn.conv2d_transpose(net, filter, [32,20,4,1], strides=[1,4,1,1])
+            tf.summary.image('conv1', deconv, family='outputs')
 
     net = tf.layers.conv2d(net, filters=1,
                            kernel_size=[5,4],
@@ -199,12 +206,12 @@ def pooled_conv2d_model(inputs, targets, learning_rate, learning_rate_decay=0.97
     fetches['loss'] = loss
 
     if mode == 'train':
-        global_step = tf.Variable(0, trainable=False, name='global_step')
+        global_step = tf.Variable(0, trainable=False)  # , name='global_step')
         learning_rate = tf.train.exponential_decay(learning_rate, global_step, decay_steps=10000,
                                                    decay_rate=learning_rate_decay,
                                                    name='decayed_learning_rate',
                                                    staircase=True)
-        opt = tf.train.RMSPropOptimizer(learning_rate)
+        opt = tf.train.MomentumOptimizer(learning_rate, momentum=0.9)
         train_op = opt.minimize(loss, global_step=global_step)
         fetches['global_step'] = global_step
         fetches['train_op'] = train_op
@@ -212,12 +219,14 @@ def pooled_conv2d_model(inputs, targets, learning_rate, learning_rate_decay=0.97
         if save_summary:
             tf.summary.scalar('learning_rate', learning_rate)
             tf.summary.scalar('loss', loss)
+            # conv1
             with tf.variable_scope('conv1', reuse=True):
                 kernel = tf.get_variable('kernel')
                 kernel = tf.transpose(kernel, [3,0,1,2])
                 kernel = tf.concat(tf.unstack(kernel, axis=0),axis=1)
                 kernel = tf.expand_dims(kernel, axis=0)
             tf.summary.image('kernels', kernel, max_outputs=10, family='conv1')
+            # conv2
             with tf.variable_scope('conv2', reuse=True):
                 kernels = tf.get_variable('kernel')
             for i, kernel in enumerate(tf.unstack(kernels, axis=3)):

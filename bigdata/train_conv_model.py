@@ -6,15 +6,15 @@ from bigdata import conv_model
 
 now = datetime.datetime.now()
 date = "{}-{:0>2}-{:0>2}-{:0>2}:{:0>2}".format(now.year, now.month, now.day, now.hour, now.minute)
-MODEL = "pooled_conv2d_model_250"
+MODEL = "pooled_conv2d_model"
 note = '531-Momentum'
 MODE = "eval"
 LR = 0.01
 LR_DECAY = 0.99
-STEPS = 150000
+STEPS = 50000
 RESTORE_CHK_POINT = True
 RESTORE_CHK_POINT_PATH = \
-    'bigdata/pooled_conv2d_model_250/checkpoints/2018-08-15-22:04-531-Momentum/conv_model-200000'
+    'bigdata/pooled_conv2d_model/checkpoints/2018-08-14-21:33-kernel5+1-Momentum/conv_model-1650000'
 SAVE_CHK_POINT = True
 SAVE_CHK_POINT_STEP = 50000
 SAVE_SUMMARY = True
