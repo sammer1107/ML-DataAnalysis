@@ -12,15 +12,15 @@ BY_LOSS = 'by_loss'
 
 now = datetime.datetime.now()
 date = "{}-{:0>2}-{:0>2}-{:0>2}:{:0>2}".format(now.year, now.month, now.day, now.hour, now.minute)
-MODEL = "pooled_conv2d_model_2506"
-note = '1(3)d1-tanh'
-MODE = TRAIN
-LR = 0.01
+MODEL = "pooled_conv2d_model_250dd"
+note = '221f(reg-9)'
+MODE = EVAL
+LR = 0.05
 LR_DECAY = 0.96
-STEPS = 150000
-RESTORE_CHK_POINT = False
+STEPS = 40000
+RESTORE_CHK_POINT = True
 RESTORE_CHK_POINT_PATH = \
-    'bigdata/pooled_conv2d_model_2506/checkpoints/2018-08-17-00:00-1(3)d1-tanh/conv_model-450000'
+    'bigdata/pooled_conv2d_model_250dd/checkpoints/2018-08-17-16:51-221f(reg-9)/conv_model-40000'
 SAVE_CHK_POINT = True
 SAVE_CHK_POINT_STEP = 20000
 SAVE_SUMMARY = True
@@ -47,7 +47,7 @@ def main():
     fetches = model(inputs, targets, LR, LR_DECAY, mode=MODE, save_summary=SAVE_SUMMARY)
 
     if SAVE_CHK_POINT or RESTORE_CHK_POINT:
-        max_to_keep = 3 if SAVE_STRATEGY == BY_LOSS else 10
+        max_to_keep = 5 if SAVE_STRATEGY == BY_LOSS else 10
         saver = tf.train.Saver(max_to_keep=max_to_keep)
     if SAVE_SUMMARY and MODE != EVAL:
         summary_writer = tf.summary.FileWriter(SUMMARY_PATH, tf.get_default_graph())
@@ -95,6 +95,7 @@ def main():
         print('outputs:\n', pretty_print(out['outputs']))
         print('error:\n', pretty_print(out['outputs']-otargets))
         exp_error = np.exp(otargets)-np.exp(out['outputs'])
+        print('exp original inputs:\n', pretty_print(np.exp(otargets)))
         print('exp error:\n', pretty_print(exp_error))
         print('average exp error:\n{:.10f}'.format(np.mean(np.abs(exp_error))))
         print('RMSE:\n{:.10f}'.format(np.sqrt(out['loss'])))
