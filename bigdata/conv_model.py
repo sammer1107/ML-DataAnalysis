@@ -352,7 +352,7 @@ def pooled_conv2d_model_2506(inputs, targets, learning_rate, learning_rate_decay
     if save_summary:
         tf.summary.image('AvgPooling', net, family='outputs')
 
-    net = tf.layers.conv2d(net, filters=5,
+    net = tf.layers.conv2d(net, filters=1,
                            kernel_size=[3,1],
                            strides=[3,1],
                            name='conv1',
@@ -363,12 +363,12 @@ def pooled_conv2d_model_2506(inputs, targets, learning_rate, learning_rate_decay
         deconv = tf.nn.conv2d_transpose(net, filter, [32,30,4,1], strides=[1,3,1,1])
         tf.summary.image('conv1', deconv, family='outputs')
 
-    net = tf.layers.conv2d(net, filters=3,
-                           kernel_size=[1,1],
-                           name='conv2',
-                           activation=tf.nn.tanh)
+    # net = tf.layers.conv2d(net, filters=1,
+    #                        kernel_size=[1,1],
+    #                        name='conv2',
+    #                        activation=tf.nn.tanh)
 
-    net = tf.layers.conv2d(net, filters=2,
+    net = tf.layers.conv2d(net, filters=1,
                            kernel_size=[5,4],
                            dilation_rate=[2,1],
                            activation=tf.nn.tanh,
@@ -394,7 +394,8 @@ def pooled_conv2d_model_2506(inputs, targets, learning_rate, learning_rate_decay
                                                    name='decayed_learning_rate',
                                                    staircase=True)
         opt = tf.train.MomentumOptimizer(learning_rate, momentum=0.9, use_nesterov=True)
-        train_op = opt.minimize(loss, global_step=global_step)
+        gradients = opt.compute_gradients(loss)
+        train_op = opt.apply_gradients(gradients, global_step=global_step)
         fetches['global_step'] = global_step
         fetches['train_op'] = train_op
 
@@ -419,7 +420,8 @@ def pooled_conv2d_model_2506(inputs, targets, learning_rate, learning_rate_decay
             #     kernel = tf.concat(tf.unstack(kernel, axis=3), axis=2)
             #     kernel = tf.expand_dims(kernel, axis=3)
             # tf.summary.image('kernels', kernel, max_outputs=10, family='conv2')
-
+            for gradient, tensor in gradients:
+                tf.summary.histogram("{}_gradient".format(tensor.name),gradients, family='gradients')
             fetches['summary_all'] = tf.summary.merge_all()
 
     return fetches

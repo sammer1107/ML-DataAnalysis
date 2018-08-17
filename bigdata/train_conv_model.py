@@ -13,14 +13,14 @@ BY_LOSS = 'by_loss'
 now = datetime.datetime.now()
 date = "{}-{:0>2}-{:0>2}-{:0>2}:{:0>2}".format(now.year, now.month, now.day, now.hour, now.minute)
 MODEL = "pooled_conv2d_model_2506"
-note = '5(3)3(1)-tanh-d2-nesterov'
-MODE = EVAL
-LR = 0.08
-LR_DECAY = 0.95
-STEPS = 10000
-RESTORE_CHK_POINT = True
+note = '1(3)d1-tanh'
+MODE = TRAIN
+LR = 0.01
+LR_DECAY = 0.96
+STEPS = 150000
+RESTORE_CHK_POINT = False
 RESTORE_CHK_POINT_PATH = \
-    'bigdata/pooled_conv2d_model_2506/checkpoints/2018-08-16-18:47-5(3)3(1)-tanh-d2-Momentum/conv_model-210000'
+    'bigdata/pooled_conv2d_model_2506/checkpoints/2018-08-17-00:00-1(3)d1-tanh/conv_model-450000'
 SAVE_CHK_POINT = True
 SAVE_CHK_POINT_STEP = 20000
 SAVE_SUMMARY = True
