@@ -13,17 +13,19 @@ BY_LOSS = 'by_loss'
 now = datetime.datetime.now()
 date = "{}-{:0>2}-{:0>2}-{:0>2}:{:0>2}".format(now.year, now.month, now.day, now.hour, now.minute)
 MODEL = "pooled_conv2d_model_250dd"
-note = '221f(reg-9)'
+note = '222f-batch1'
 MODE = EVAL
-LR = 0.05
-LR_DECAY = 0.96
-STEPS = 40000
+LR = 0.0001
+LR_DECAY = 0.99
+BATCH_SIZE = 4
+STEPS = 100000
 RESTORE_CHK_POINT = True
 RESTORE_CHK_POINT_PATH = \
-    'bigdata/pooled_conv2d_model_250dd/checkpoints/2018-08-17-16:51-221f(reg-9)/conv_model-40000'
+    'bigdata/pooled_conv2d_model_250dd/checkpoints/2018-08-17-22:25-222f-batch1/conv_model-350000'
 SAVE_CHK_POINT = True
 SAVE_CHK_POINT_STEP = 20000
-SAVE_SUMMARY = True
+SUMMARY_LV = 2
+SUMMARY_STEP = 1000
 SAVE_STRATEGY = BY_LOSS
 
 if RESTORE_CHK_POINT:
@@ -44,12 +46,12 @@ def main():
     inputs = tf.constant(oinputs, dtype=tf.float32)
     targets = tf.constant(otargets, dtype=tf.float32)
     model = getattr(conv_model, MODEL)
-    fetches = model(inputs, targets, LR, LR_DECAY, mode=MODE, save_summary=SAVE_SUMMARY)
+    fetches = model(inputs, targets, LR, BATCH_SIZE, LR_DECAY, mode=MODE, summary_lv=SUMMARY_LV)
 
     if SAVE_CHK_POINT or RESTORE_CHK_POINT:
         max_to_keep = 5 if SAVE_STRATEGY == BY_LOSS else 10
         saver = tf.train.Saver(max_to_keep=max_to_keep)
-    if SAVE_SUMMARY and MODE != EVAL:
+    if SUMMARY_LV and MODE != EVAL:
         summary_writer = tf.summary.FileWriter(SUMMARY_PATH, tf.get_default_graph())
 
     with tf.Session() as sess:
@@ -59,15 +61,17 @@ def main():
         else:
             sess.run(tf.global_variables_initializer())
         if MODE == TRAIN:
-            # coord = tf.train.Coordinator()
-            # threads = tf.train.start_queue_runners(coord=coord)
+            coord = tf.train.Coordinator()
+            threads = tf.train.start_queue_runners(coord=coord)
             out = {}
             log_loss_count = np.log2(sess.run(fetches['loss']))
             for i in range(STEPS):
                 out = sess.run(fetches)
-                if (i+1) % 200 == 0:
+
+                if (i+1) % 100 == 0:
                     print('step: {: >7},\t loss: {:.5E}'.format(out['global_step'], out['loss']))
-                    if SAVE_SUMMARY:
+                if (i+1) % SUMMARY_STEP == 0:
+                    if SUMMARY_LV:
                         summary_writer.add_summary(out['summary_all'], global_step=out['global_step'])
 
                 if SAVE_STRATEGY == BY_STEP:
@@ -82,20 +86,16 @@ def main():
 
             if SAVE_STRATEGY == BY_LOSS:  # final save
                 saver.save(sess, CHECKPOINT_PATH + '/conv_model', global_step=out['global_step'])
-            # coord.request_stop()
-            # coord.join(threads)
-            # no longer needed
-            # if SAVE_CHK_POINT and RESTORE_CHK_POINT:
-            #     with open(CHECKPOINT_PATH + '/info', "w+") as f:
-            #         f.write("continued from {} checkpoint".format(RESTORE_CHK_POINT_PATH))
+            coord.request_stop()
+            coord.join(threads)
         elif MODE == EVAL:
             out = sess.run(fetches)
 
-        print('original input:\n', pretty_print(otargets))
+        print('original input:\n', pretty_print(out['inputs']))
         print('outputs:\n', pretty_print(out['outputs']))
-        print('error:\n', pretty_print(out['outputs']-otargets))
-        exp_error = np.exp(otargets)-np.exp(out['outputs'])
-        print('exp original inputs:\n', pretty_print(np.exp(otargets)))
+        print('error:\n', pretty_print(out['outputs']-out['inputs']))
+        exp_error = np.exp(out['inputs'])-np.exp(out['outputs'])
+        print('exp original inputs:\n', pretty_print(np.exp(out['inputs'])))
         print('exp error:\n', pretty_print(exp_error))
         print('average exp error:\n{:.10f}'.format(np.mean(np.abs(exp_error))))
         print('RMSE:\n{:.10f}'.format(np.sqrt(out['loss'])))

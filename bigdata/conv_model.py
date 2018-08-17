@@ -533,7 +533,7 @@ def pooled_conv2d_model_250d(inputs, targets, learning_rate, learning_rate_decay
     return fetches
 
 
-def pooled_conv2d_model_250dd(inputs, targets, learning_rate, learning_rate_decay=0.97, mode='train', save_summary=False):
+def pooled_conv2d_model_250dd(inputs, targets, learning_rate, batch_size, learning_rate_decay=0.97, mode='train', summary_lv=False):
     """This is a new experimental messed up model for Thu Dataset,
     this also uses a big pooling first in order to simplify the feature.
     the input should be in shape [batch_size, 7500, 4, 1] preprocessed from thu_dataset.py.
@@ -541,57 +541,50 @@ def pooled_conv2d_model_250dd(inputs, targets, learning_rate, learning_rate_deca
 
     assert mode in ['train', 'eval'], "mode should be one of ['train', 'eval']"
 
-    fetches = {}
-    image_summaries = []
+    if mode == 'train':
+        inputs, targets = tf.train.shuffle_batch([inputs, targets], batch_size=batch_size, capacity=160,
+                                                 min_after_dequeue=80,
+                                                 enqueue_many=True,
+                                                 name='batch')
 
+
+    fetches = {}
+    layer_outputs = []
+
+    fetches['inputs'] = targets
     net = tf.layers.average_pooling2d(inputs, pool_size=[250, 1],
                                       strides=[250, 1],
                                       name='pooling250')
-    image_summaries.append(net)
+    layer_outputs.append(net)
 
     net = tf.layers.conv2d(net, filters=2,
                            kernel_size=[3,1],
                            strides=[1,1],
                            padding='SAME',
                            name='conv1',
-                           activation=tf.nn.tanh,
-                           kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=1e-10))
-    image_summaries.append(net)
-
-    if save_summary:
-        with tf.variable_scope('conv1', reuse=True):
-            filter = tf.get_variable('kernel')
-        deconv = tf.nn.conv2d_transpose(net, filter, [32,30,4,1], strides=[1,1,1,1])
-        tf.summary.image('deconv1', deconv,max_outputs=1, family='outputs')
+                           activation=tf.nn.tanh)
+    layer_outputs.append(net)
 
     net = tf.layers.conv2d(net, filters=2,
                            kernel_size=[1,4],
                            strides=[1,1],
                            activation=tf.nn.tanh,
-                           kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=1e-10),
                            name='conv2')
-    image_summaries.append(net)
-    net = tf.layers.conv2d(net, filters=1,
-                           kernel_size=[3,1],
-                           strides=[1,1],
-                           padding='SAME',
+    layer_outputs.append(net)
+
+    net = tf.layers.conv2d(net, filters=2,
+                           kernel_size=[5,1],
+                           dilation_rate=[6,1],
                            activation=tf.nn.tanh,
-                           kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=1e-10),
                            name='conv3')
-    image_summaries.append(net)
-    net = tf.layers.average_pooling2d(net,
-                                      pool_size=[2,1],
-                                      strides=[2,1],
-                                      name='pooling2')
-    image_summaries.append(net)
+    layer_outputs.append(net)
 
 
     net = tf.layers.flatten(net, name='flatten')
 
     # net = tf.squeeze(net, axis=[1,2])
 
-    outputs = tf.layers.dense(net, 1, name='output',
-                              kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=1e-10))
+    outputs = tf.layers.dense(net, 1, name='output')
     outputs = tf.reshape(outputs,[-1])
 
     fetches['outputs'] = outputs
@@ -613,28 +606,32 @@ def pooled_conv2d_model_250dd(inputs, targets, learning_rate, learning_rate_deca
         fetches['global_step'] = global_step
         fetches['train_op'] = train_op
 
-        if save_summary:
+        if summary_lv:
             tf.summary.scalar('learning_rate', learning_rate)
             tf.summary.scalar('loss', loss)
-            # conv1 summary
-            # kernels are in shape [H,W,C,N]
-            with tf.variable_scope('conv1', reuse=True):
-                kernel = tf.get_variable('kernel')
-                # kernel = tf.transpose(kernel, [3,0,1,2])
-                kernel = tf.concat(tf.unstack(kernel, axis=3),axis=1)
-                kernel = tf.expand_dims(kernel, axis=0)
-            tf.summary.image('kernels', kernel, max_outputs=10, family='conv1')
-            # trainable variables
-            for tensor in tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES):
-                tf.summary.histogram(tensor.name, tensor, family='trainables')
-            # images
-            for tensor in image_summaries:
-                for i, channel in enumerate(tf.unstack(tensor,axis=3)):
-                    tf.summary.image(tensor.name + str(i), tf.expand_dims(channel,3),
-                                     max_outputs=1, family='outputs')
-            # gradients
-            for gradient, tensor in gradients:
-                tf.summary.histogram("{}_gradient".format(tensor.name),gradient, family='gradients')
+
+            if summary_lv >= 2:
+                # conv1 summary
+                # kernels are in shape [H,W,C,N]
+                with tf.variable_scope('conv1', reuse=True):
+                    kernel = tf.get_variable('kernel')
+                    # kernel = tf.transpose(kernel, [3,0,1,2])
+                    kernel = tf.concat(tf.unstack(kernel, axis=3),axis=1)
+                    kernel = tf.expand_dims(kernel, axis=0)
+                tf.summary.image('kernels', kernel, max_outputs=10, family='conv1')
+                # trainable variables
+                for tensor in tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES):
+                    tf.summary.histogram(tensor.name, tensor, family='trainables')
+                # images
+                for tensor in layer_outputs:
+                    tf.summary.histogram(tensor.name, tensor, family='outputs')
+                    for i, channel in enumerate(tf.unstack(tensor,axis=3)):
+                        tf.summary.image(tensor.name + str(i), tf.expand_dims(channel,3),
+                                         max_outputs=1, family='outputs')
+                # gradients
+                for gradient, tensor in gradients:
+                    tf.summary.histogram("{}_gradient".format(tensor.name),gradient, family='gradients')
+
             fetches['summary_all'] = tf.summary.merge_all()
 
     return fetches
