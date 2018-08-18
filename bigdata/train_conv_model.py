@@ -13,19 +13,19 @@ BY_LOSS = 'by_loss'
 now = datetime.datetime.now()
 date = "{}-{:0>2}-{:0>2}-{:0>2}:{:0>2}".format(now.year, now.month, now.day, now.hour, now.minute)
 MODEL = "pooled_conv2d_model_250dd"
-note = '222f-batch1'
-MODE = EVAL
+note = '2p-batch5-1-1-reduced'
+MODE = TRAIN
 LR = 0.0001
 LR_DECAY = 0.99
-BATCH_SIZE = 4
+BATCH_SIZE = 70
 STEPS = 100000
 RESTORE_CHK_POINT = True
 RESTORE_CHK_POINT_PATH = \
-    'bigdata/pooled_conv2d_model_250dd/checkpoints/2018-08-17-22:25-222f-batch1/conv_model-350000'
+    'bigdata/pooled_conv2d_model_250dd/checkpoints/2018-08-18-21:01-2p-batch5-1-1-reduced/conv_model-300000'
 SAVE_CHK_POINT = True
 SAVE_CHK_POINT_STEP = 20000
 SUMMARY_LV = 2
-SUMMARY_STEP = 1000
+SUMMARY_STEP = 700
 SAVE_STRATEGY = BY_LOSS
 
 if RESTORE_CHK_POINT:
@@ -43,7 +43,10 @@ def main():
 
     dataset = ThuDataset("bigdata/log_normalized_data/{}/", MODE)
     oinputs, otargets = dataset.get_data()
-    inputs = tf.constant(oinputs, dtype=tf.float32)
+    reduced_inputs = np.zeros([np.shape(oinputs)[0],7500,2,1])
+    reduced_inputs[:,:,1] = oinputs[:,:,2]
+    reduced_inputs[:,:,0] = (oinputs[:,:,0] + oinputs[:,:,1] + oinputs[:,:,3])/3
+    inputs = tf.constant(reduced_inputs, dtype=tf.float32)
     targets = tf.constant(otargets, dtype=tf.float32)
     model = getattr(conv_model, MODEL)
     fetches = model(inputs, targets, LR, BATCH_SIZE, LR_DECAY, mode=MODE, summary_lv=SUMMARY_LV)

@@ -545,7 +545,8 @@ def pooled_conv2d_model_250dd(inputs, targets, learning_rate, batch_size, learni
         inputs, targets = tf.train.shuffle_batch([inputs, targets], batch_size=batch_size, capacity=160,
                                                  min_after_dequeue=80,
                                                  enqueue_many=True,
-                                                 name='batch')
+                                                 name='batch',
+                                                 allow_smaller_final_batch=False)
 
 
     fetches = {}
@@ -562,27 +563,20 @@ def pooled_conv2d_model_250dd(inputs, targets, learning_rate, batch_size, learni
                            strides=[1,1],
                            padding='SAME',
                            name='conv1',
-                           activation=tf.nn.tanh)
-    layer_outputs.append(net)
-
-    net = tf.layers.conv2d(net, filters=2,
-                           kernel_size=[1,4],
-                           strides=[1,1],
                            activation=tf.nn.tanh,
-                           name='conv2')
+                           kernel_initializer=tf.initializers.constant([[[[1,-1]]],[[[1,-1]]],[[[1,-1]]]]))
     layer_outputs.append(net)
-
-    net = tf.layers.conv2d(net, filters=2,
-                           kernel_size=[5,1],
-                           dilation_rate=[6,1],
-                           activation=tf.nn.tanh,
-                           name='conv3')
+    net = tf.layers.average_pooling2d(net, pool_size=[2,1],
+                                      strides=[2,1],
+                                      name='pool2')
     layer_outputs.append(net)
-
-
     net = tf.layers.flatten(net, name='flatten')
 
-    # net = tf.squeeze(net, axis=[1,2])
+    # net = tf.layers.dropout(net, rate=0.2, training=True if mode=='train' else False,
+    #                         name='dropout')
+
+    # net = tf.layers.dense(net, 6, name='dense1', activation=tf.nn.tanh,
+    #                       kernel_initializer=tf.initializers.random_uniform(maxval=0.2))
 
     outputs = tf.layers.dense(net, 1, name='output')
     outputs = tf.reshape(outputs,[-1])
@@ -600,7 +594,7 @@ def pooled_conv2d_model_250dd(inputs, targets, learning_rate, batch_size, learni
                                                    decay_rate=learning_rate_decay,
                                                    name='decayed_learning_rate',
                                                    staircase=True)
-        opt = tf.train.MomentumOptimizer(learning_rate, momentum=0.9, use_nesterov=True)
+        opt = tf.train.RMSPropOptimizer(learning_rate, decay=0.9)
         gradients = opt.compute_gradients(loss)
         train_op = opt.apply_gradients(gradients, global_step=global_step)
         fetches['global_step'] = global_step
@@ -622,7 +616,7 @@ def pooled_conv2d_model_250dd(inputs, targets, learning_rate, batch_size, learni
                 # trainable variables
                 for tensor in tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES):
                     tf.summary.histogram(tensor.name, tensor, family='trainables')
-                # images
+                # layer outputs
                 for tensor in layer_outputs:
                     tf.summary.histogram(tensor.name, tensor, family='outputs')
                     for i, channel in enumerate(tf.unstack(tensor,axis=3)):
@@ -637,6 +631,68 @@ def pooled_conv2d_model_250dd(inputs, targets, learning_rate, batch_size, learni
     return fetches
 
 
+def pooled_simple_model(inputs, targets, learning_rate, batch_size, learning_rate_decay=0.97, mode='train', summary_lv=False):
+    """This is a new experimental messed up model for Thu Dataset,
+    this also uses a big pooling first in order to simplify the feature.
+    the input should be in shape [batch_size, 7500, 4, 1] preprocessed from thu_dataset.py.
+    ***no detailed doc yet*** """
+
+    assert mode in ['train', 'eval'], "mode should be one of ['train', 'eval']"
+
+    if mode == 'train':
+        inputs, targets = tf.train.shuffle_batch([inputs, targets], batch_size=batch_size, capacity=160,
+                                                 min_after_dequeue=80,
+                                                 enqueue_many=True,
+                                                 name='batch',
+                                                 allow_smaller_final_batch=False)
+
+
+    fetches = {}
+
+    fetches['inputs'] = targets
+    net = tf.layers.average_pooling2d(inputs, pool_size=[250, 1],
+                                      strides=[250, 1],
+                                      name='pooling250')
+
+    net = tf.layers.flatten(net, name='flatten')
+
+    outputs = tf.layers.dense(net, 1, name='output')
+    outputs = tf.reshape(outputs,[-1])
+
+    fetches['outputs'] = outputs
+    fetches['relative_error'] = (outputs - targets) / targets
+    loss = tf.losses.mean_squared_error(outputs, targets) \
+           + tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
+    # loss = tf.reduce_mean(tf.abs(outputs - targets))
+    fetches['loss'] = loss
+
+    if mode == 'train':
+        global_step = tf.Variable(0, trainable=False, name='global_step')
+        learning_rate = tf.train.exponential_decay(learning_rate, global_step, decay_steps=10000,
+                                                   decay_rate=learning_rate_decay,
+                                                   name='decayed_learning_rate',
+                                                   staircase=True)
+        opt = tf.train.RMSPropOptimizer(learning_rate, decay=0.9)
+        gradients = opt.compute_gradients(loss)
+        train_op = opt.apply_gradients(gradients, global_step=global_step)
+        fetches['global_step'] = global_step
+        fetches['train_op'] = train_op
+
+        if summary_lv:
+            tf.summary.scalar('learning_rate', learning_rate)
+            tf.summary.scalar('loss', loss)
+
+            if summary_lv >= 2:
+                # trainable variables
+                for tensor in tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES):
+                    tf.summary.histogram(tensor.name, tensor, family='trainables')
+                # gradients
+                for gradient, tensor in gradients:
+                    tf.summary.histogram("{}_gradient".format(tensor.name),gradient, family='gradients')
+
+            fetches['summary_all'] = tf.summary.merge_all()
+
+    return fetches
 # from bigdata.data.thu_dataset import ThuDataset
 # dataset = ThuDataset('bigdata/log_normalized_data/{}/')
 # inputs, targets = dataset.get_data()
