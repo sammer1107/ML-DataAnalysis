@@ -1,39 +1,39 @@
 import tensorflow as tf
-import datetime
 import numpy as np
 from bigdata.data.thu_dataset import ThuDataset
+from bigdata.utils import *
+from bigdata.constants import *
 from bigdata import conv_model
 
-# constants
-EVAL = 'eval'
-TRAIN = 'train'
-BY_STEP = 'by_step'
-BY_LOSS = 'by_loss'
-
-now = datetime.datetime.now()
-date = "{}-{:0>2}-{:0>2}-{:0>2}:{:0>2}".format(now.year, now.month, now.day, now.hour, now.minute)
-MODEL = "pooled_conv2d_model_250dd"
-note = '2p-batch5-1-1-reduced'
+# ===================================== SETTINGS ======================================= #
+date = format_date()
+MODEL = "pooled_simple_model"
+note = ''
 MODE = TRAIN
-LR = 0.0001
+LR = 0.005
 LR_DECAY = 0.99
-BATCH_SIZE = 70
-STEPS = 100000
+BATCH_SIZE = 30
+STEPS = 200000
 RESTORE_CHK_POINT = True
+RESTORE_PART = False
+RESTORE_LIST = {}
 RESTORE_CHK_POINT_PATH = \
-    'bigdata/pooled_conv2d_model_250dd/checkpoints/2018-08-18-21:01-2p-batch5-1-1-reduced/conv_model-300000'
+    'bigdata/pooled_simple_model/checkpoints/2018-08-18-23:12-/conv_model-100000'
 SAVE_CHK_POINT = True
 SAVE_CHK_POINT_STEP = 20000
 SUMMARY_LV = 2
 SUMMARY_STEP = 700
-SAVE_STRATEGY = BY_LOSS
+SAVE_STRATEGY = BY_STEP
+# ===================================================================================== #
 
-if RESTORE_CHK_POINT:
+# === decide if should create new folder for this run === #
+if RESTORE_CHK_POINT and not RESTORE_PART:
     CHECKPOINT_PATH = RESTORE_CHK_POINT_PATH.rsplit('/',1)[0]
     SUMMARY_PATH = './bigdata/{}/summary/{}'.format(MODEL, RESTORE_CHK_POINT_PATH.rsplit('/')[-2])
 else:
     CHECKPOINT_PATH = './bigdata/{}/checkpoints/{}-{}'.format(MODEL, date, note)
     SUMMARY_PATH = './bigdata/{}/summary/{}-{}'.format(MODEL, date, note)
+# ======================================================= #
 
 if MODE == EVAL:
     assert RESTORE_CHK_POINT, 'eval mode should be start from a trained model checkpoint'
@@ -43,24 +43,40 @@ def main():
 
     dataset = ThuDataset("bigdata/log_normalized_data/{}/", MODE)
     oinputs, otargets = dataset.get_data()
+    # reduce columns
     reduced_inputs = np.zeros([np.shape(oinputs)[0],7500,2,1])
     reduced_inputs[:,:,1] = oinputs[:,:,2]
     reduced_inputs[:,:,0] = (oinputs[:,:,0] + oinputs[:,:,1] + oinputs[:,:,3])/3
+    # transform to tensors
     inputs = tf.constant(reduced_inputs, dtype=tf.float32)
     targets = tf.constant(otargets, dtype=tf.float32)
+    # generate graph
     model = getattr(conv_model, MODEL)
     fetches = model(inputs, targets, LR, BATCH_SIZE, LR_DECAY, mode=MODE, summary_lv=SUMMARY_LV)
+    graph = tf.get_default_graph()
 
     if SAVE_CHK_POINT or RESTORE_CHK_POINT:
         max_to_keep = 5 if SAVE_STRATEGY == BY_LOSS else 10
         saver = tf.train.Saver(max_to_keep=max_to_keep)
+    if RESTORE_PART:
+        assert RESTORE_LIST, 'No RESTORE_LIST specified'
+
+        for key, value in RESTORE_LIST.items():
+            RESTORE_LIST[key] = graph.get_tensor_by_name(value)
+        restore_saver = tf.train.Saver(var_list=RESTORE_LIST)
     if SUMMARY_LV and MODE != EVAL:
         summary_writer = tf.summary.FileWriter(SUMMARY_PATH, tf.get_default_graph())
 
     with tf.Session() as sess:
         if RESTORE_CHK_POINT:
-            saver.restore(sess, RESTORE_CHK_POINT_PATH)
-            print('restore variables from ', RESTORE_CHK_POINT_PATH)
+            if not RESTORE_PART:
+                saver.restore(sess, RESTORE_CHK_POINT_PATH)
+                print('restore variables from ', RESTORE_CHK_POINT_PATH)
+            else:
+                sess.run(tf.global_variables_initializer())
+                restore_saver.restore(sess, RESTORE_CHK_POINT_PATH)
+                print('restore variables from ', RESTORE_CHK_POINT_PATH)
+                print(RESTORE_LIST)
         else:
             sess.run(tf.global_variables_initializer())
         if MODE == TRAIN:
@@ -107,15 +123,6 @@ def main():
         # print('outputs:\n', pretty_print(np.exp(out['outputs'])))
 
     print('Done')
-
-
-def pretty_print(x):
-    repr_str = np.array_repr(x)
-    repr_str = repr_str.replace(' ','').replace('\n','')[7:-16]
-    splits = np.array(repr_str.split(',')).astype(np.float32)
-    template = '{:+.5f},\t'*(len(splits)-1) + '{:+5f}'
-    formatted = template.format(*splits)
-    return formatted
 
 
 if __name__ == '__main__':

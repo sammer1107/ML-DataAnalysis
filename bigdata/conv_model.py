@@ -640,8 +640,8 @@ def pooled_simple_model(inputs, targets, learning_rate, batch_size, learning_rat
     assert mode in ['train', 'eval'], "mode should be one of ['train', 'eval']"
 
     if mode == 'train':
-        inputs, targets = tf.train.shuffle_batch([inputs, targets], batch_size=batch_size, capacity=160,
-                                                 min_after_dequeue=80,
+        inputs, targets = tf.train.shuffle_batch([inputs, targets], batch_size=batch_size, capacity=batch_size*10 if batch_size>20 else 80,
+                                                 min_after_dequeue=batch_size*5 if batch_size>20 else 80,
                                                  enqueue_many=True,
                                                  name='batch',
                                                  allow_smaller_final_batch=False)
@@ -656,6 +656,8 @@ def pooled_simple_model(inputs, targets, learning_rate, batch_size, learning_rat
 
     net = tf.layers.flatten(net, name='flatten')
 
+    net = tf.layers.dense(net, 12, name='dense1')
+    net = tf.layers.dropout(net, rate=0.25, training=True if mode=='train' else False)
     outputs = tf.layers.dense(net, 1, name='output')
     outputs = tf.reshape(outputs,[-1])
 
@@ -672,7 +674,7 @@ def pooled_simple_model(inputs, targets, learning_rate, batch_size, learning_rat
                                                    decay_rate=learning_rate_decay,
                                                    name='decayed_learning_rate',
                                                    staircase=True)
-        opt = tf.train.RMSPropOptimizer(learning_rate, decay=0.9)
+        opt = tf.train.MomentumOptimizer(learning_rate, momentum=0.9, use_nesterov=True)
         gradients = opt.compute_gradients(loss)
         train_op = opt.apply_gradients(gradients, global_step=global_step)
         fetches['global_step'] = global_step
