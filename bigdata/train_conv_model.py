@@ -7,27 +7,28 @@ from bigdata import conv_model
 
 # ===================================== SETTINGS ======================================= #
 date = format_date()
-MODEL = "pooled_simple_model"
-note = ''
-MODE = TRAIN
-LR = 0.005
-LR_DECAY = 0.99
-BATCH_SIZE = 30
+MODEL = "pooled_conv2d_model_375s"
+note = '3(tanh,reg)-mean'
+MODE = EVAL
+LR = 0.0001
+LR_DECAY = 1
+BATCH_SIZE = 5
 STEPS = 200000
 RESTORE_CHK_POINT = True
+KEEP_RESTORE_DIR = True
 RESTORE_PART = False
-RESTORE_LIST = {}
+RESTORE_LIST = {'dense1/kernel':'dense1/kernel:0','dense1/bias':'dense1/bias:0'}
 RESTORE_CHK_POINT_PATH = \
-    'bigdata/pooled_simple_model/checkpoints/2018-08-18-23:12-/conv_model-100000'
+    'bigdata/pooled_conv2d_model_375s/checkpoints/2018-08-20-19:22-3(tanh,reg)-mean/3(tanh,reg)-mean-500000'
 SAVE_CHK_POINT = True
-SAVE_CHK_POINT_STEP = 20000
+SAVE_CHK_POINT_STEP = 10000
 SUMMARY_LV = 2
 SUMMARY_STEP = 700
 SAVE_STRATEGY = BY_STEP
 # ===================================================================================== #
 
 # === decide if should create new folder for this run === #
-if RESTORE_CHK_POINT and not RESTORE_PART:
+if RESTORE_CHK_POINT and not RESTORE_PART and KEEP_RESTORE_DIR:
     CHECKPOINT_PATH = RESTORE_CHK_POINT_PATH.rsplit('/',1)[0]
     SUMMARY_PATH = './bigdata/{}/summary/{}'.format(MODEL, RESTORE_CHK_POINT_PATH.rsplit('/')[-2])
 else:
@@ -44,19 +45,19 @@ def main():
     dataset = ThuDataset("bigdata/log_normalized_data/{}/", MODE)
     oinputs, otargets = dataset.get_data()
     # reduce columns
-    reduced_inputs = np.zeros([np.shape(oinputs)[0],7500,2,1])
-    reduced_inputs[:,:,1] = oinputs[:,:,2]
-    reduced_inputs[:,:,0] = (oinputs[:,:,0] + oinputs[:,:,1] + oinputs[:,:,3])/3
+    # reduced_inputs = np.zeros([np.shape(oinputs)[0],7500,2,1])
+    # reduced_inputs[:,:,1] = oinputs[:,:,2]
+    # reduced_inputs[:,:,0] = (oinputs[:,:,0] + oinputs[:,:,1] + oinputs[:,:,3])/3
     # transform to tensors
-    inputs = tf.constant(reduced_inputs, dtype=tf.float32)
+    inputs = tf.constant(oinputs, dtype=tf.float32)
     targets = tf.constant(otargets, dtype=tf.float32)
     # generate graph
     model = getattr(conv_model, MODEL)
-    fetches = model(inputs, targets, LR, BATCH_SIZE, LR_DECAY, mode=MODE, summary_lv=SUMMARY_LV)
+    fetches = model(inputs, targets, LR, batch_size=BATCH_SIZE, learning_rate_decay=LR_DECAY, mode=MODE, summary_lv=SUMMARY_LV)
     graph = tf.get_default_graph()
 
     if SAVE_CHK_POINT or RESTORE_CHK_POINT:
-        max_to_keep = 5 if SAVE_STRATEGY == BY_LOSS else 10
+        max_to_keep = 10 if SAVE_STRATEGY == BY_LOSS else 100
         saver = tf.train.Saver(max_to_keep=max_to_keep)
     if RESTORE_PART:
         assert RESTORE_LIST, 'No RESTORE_LIST specified'
@@ -95,7 +96,7 @@ def main():
 
                 if SAVE_STRATEGY == BY_STEP:
                     if SAVE_CHK_POINT and (i+1) % SAVE_CHK_POINT_STEP == 0:
-                        saver.save(sess, CHECKPOINT_PATH + '/conv_model', global_step=out['global_step'])
+                        saver.save(sess, '{}/{}'.format(CHECKPOINT_PATH, note), global_step=out['global_step'])
                 elif SAVE_STRATEGY == BY_LOSS:
                     log_loss = np.ceil(np.log2(out['loss']))
                     if log_loss < log_loss_count:
@@ -110,20 +111,29 @@ def main():
         elif MODE == EVAL:
             out = sess.run(fetches)
 
-        print('original input:\n', pretty_print(out['inputs']))
+        exp_error = np.exp(out['targets'])-np.exp(out['outputs'])
+        average_exp_error = np.mean(np.abs(exp_error))
+        exp_rmse = np.sqrt(np.mean(np.square(exp_error)))
+        print('original input:\n', pretty_print(out['targets']))
         print('outputs:\n', pretty_print(out['outputs']))
-        print('error:\n', pretty_print(out['outputs']-out['inputs']))
-        exp_error = np.exp(out['inputs'])-np.exp(out['outputs'])
-        print('exp original inputs:\n', pretty_print(np.exp(out['inputs'])))
+        print('error:\n', pretty_print(out['outputs']-out['targets']))
+        print('exp original inputs:\n', pretty_print(np.exp(out['targets'])))
         print('exp error:\n', pretty_print(exp_error))
-        print('average exp error:\n{:.10f}'.format(np.mean(np.abs(exp_error))))
+        print('average exp error:\n{:.10f}'.format(average_exp_error))
         print('RMSE:\n{:.10f}'.format(np.sqrt(out['loss'])))
-        print('exp RMSE:\n{:.10f}'.format(np.sqrt(np.mean(np.square(exp_error)))))
-        # print('original input:\n', pretty_print(np.exp(otargets)))
-        # print('outputs:\n', pretty_print(np.exp(out['outputs'])))
+        print('exp RMSE:\n{:.10f}'.format(exp_rmse))
+
+        if MODE == EVAL:
+            path, file = RESTORE_CHK_POINT_PATH.rsplit('/', 1)
+            with open(path + '/eval', 'a') as eval_result:
+                eval_result.write('{}\n{:.10f} ({:.10f})\n'.format(file, exp_rmse, average_exp_error))
 
     print('Done')
 
 
 if __name__ == '__main__':
+    # for i in range(1210000,2200001,10000):
+    #     RESTORE_CHK_POINT_PATH = \
+    #         'bigdata/pooled_conv2d_model_375s/checkpoints/2018-08-20-18:02-3(tanh)/3(tanh)-{}'.format(i)
+    #     tf.reset_default_graph()
     main()
