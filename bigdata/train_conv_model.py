@@ -1,4 +1,5 @@
 import tensorflow as tf
+import copy
 import numpy as np
 from bigdata.data.thu_dataset import ThuDataset
 from bigdata.utils import *
@@ -9,30 +10,33 @@ from bigdata import conv_model
 # ===================================== SETTINGS ======================================= #
 date = format_date()
 MODEL = "pooled_conv2d_model_375sd"
-note = '5(soft+)-mean-2(lin,soft)'
+note = '5(soft+)-mean-1(lin+soft)LR4e-4'
 MODE = EVAL
-LR = 0.0001
+LR = 0.0004
 LR_DECAY = 1
 BATCH_SIZE = 35
-STEPS = 1
+STEPS = 100000
 RESTORE_CHK_POINT = True
-KEEP_RESTORE_DIR = False
+KEEP_RESTORE_DIR = True
 RESTORE_PART = False
 RESTORE_LIST = {'conv1/kernel':'conv1/kernel:0','conv1/bias':'conv1/bias:0',
-                'outputs/kernel':'dense/linear/kernel:0',
-                'outputs/bias':'dense/linear/bias:0'}
-EVAL_RANGE = (20000,1000001,20000)
+                'dense/linear/kernel':'dense/linear/kernel:0',
+                'dense/post_bias':'dense/post_bias:0',
+                'dense/pre_bias':'dense/pre_bias:0',
+                'dense/pre_scale':'dense/pre_scale:0',
+                'dense/post_scale':'dense/post_scale:0'}
+EVAL_RANGE = (1520000,2000001,20000)
 RESTORE_CHK_POINT_PATH = \
-    'bigdata/pooled_conv2d_model_375sd/checkpoints/2018-08-22-17:07-5(soft+)-mean-2(lin,soft)/5(soft+)-mean-2(lin,soft)-{}'
+    'bigdata/pooled_conv2d_model_375sd/checkpoints/2018-08-22-22:39-5(soft+)-mean-1(lin+soft)/5(soft+)-mean-1(lin+soft)LR4e-4-{}'
 SAVE_CHK_POINT = True
 SAVE_CHK_POINT_STEP = 20000
 SUMMARY_LV = 2
-SUMMARY_STEP = 700
+SUMMARY_STEP = 1000
 SAVE_STRATEGY = BY_STEP
 # ===================================================================================== #
 
 # === decide if should create new folder for this run === #
-if RESTORE_CHK_POINT and not RESTORE_PART and KEEP_RESTORE_DIR:
+if RESTORE_CHK_POINT and KEEP_RESTORE_DIR:
     CHECKPOINT_PATH = RESTORE_CHK_POINT_PATH.rsplit('/',1)[0]
     SUMMARY_PATH = './bigdata/{}/summary/{}'.format(MODEL, RESTORE_CHK_POINT_PATH.rsplit('/')[-2])
 else:
@@ -93,6 +97,7 @@ def main():
             out = {}
             log_loss_count = np.log2(sess.run(fetches['loss']))
             for i in range(STEPS):
+
                 out = sess.run(fetches)
 
                 if (i+1) % 100 == 0:

@@ -468,11 +468,25 @@ def pooled_conv2d_model_375sd(inputs, targets, learning_rate, batch_size, learni
 
     net = tf.layers.flatten(net)
     with tf.variable_scope("dense"):
-        linear = tf.layers.dense(net, 1, activation=None, name='linear')
-        softsign = tf.layers.dense(net, 1, activation=tf.nn.softsign, name='softsign')
+        pre_bias = tf.get_variable('pre_bias', shape=[1], dtype=tf.float32,
+                                   initializer=tf.initializers.zeros)
+        pre_scale = tf.get_variable('pre_scale', shape=[1], dtype=tf.float32,
+                                     initializer=tf.initializers.constant(1.5))
+        post_scale = tf.get_variable('post_scale', shape=[1], dtype=tf.float32,
+                                     initializer=tf.initializers.constant(0.5))
+        post_bias = tf.get_variable('post_bias', shape=[1], dtype=tf.float32,
+                                   initializer=tf.initializers.zeros,
+                                    trainable=True)
+
+        linear = tf.layers.dense(net, 1, activation=None, name='linear', use_bias=False,
+                                 trainable=True)
+        softsign = (linear + pre_bias) * pre_scale
+        softsign = tf.nn.softsign(softsign, name='softsign')
+        softsign = tf.multiply(softsign, post_scale, name='post_scale')
+
+        outputs = tf.nn.bias_add(tf.add(softsign, linear), post_bias, name='output')
         layer_outputs['dense_linear'] = linear
         layer_outputs['dense_softsign'] = softsign
-        outputs = tf.add(linear, softsign, name='add')
 
     layer_outputs['dense'] = outputs
 
