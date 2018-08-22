@@ -5,23 +5,27 @@ from bigdata.utils import *
 from bigdata.constants import *
 from bigdata import conv_model
 
+
 # ===================================== SETTINGS ======================================= #
 date = format_date()
-MODEL = "pooled_conv2d_model_375s"
-note = '3(tanh,reg)-mean'
+MODEL = "pooled_conv2d_model_375sd"
+note = '5(soft+)-mean-2(lin,soft)'
 MODE = EVAL
 LR = 0.0001
 LR_DECAY = 1
-BATCH_SIZE = 5
-STEPS = 200000
+BATCH_SIZE = 35
+STEPS = 1
 RESTORE_CHK_POINT = True
-KEEP_RESTORE_DIR = True
+KEEP_RESTORE_DIR = False
 RESTORE_PART = False
-RESTORE_LIST = {'dense1/kernel':'dense1/kernel:0','dense1/bias':'dense1/bias:0'}
+RESTORE_LIST = {'conv1/kernel':'conv1/kernel:0','conv1/bias':'conv1/bias:0',
+                'outputs/kernel':'dense/linear/kernel:0',
+                'outputs/bias':'dense/linear/bias:0'}
+EVAL_RANGE = (20000,1000001,20000)
 RESTORE_CHK_POINT_PATH = \
-    'bigdata/pooled_conv2d_model_375s/checkpoints/2018-08-20-19:22-3(tanh,reg)-mean/3(tanh,reg)-mean-500000'
+    'bigdata/pooled_conv2d_model_375sd/checkpoints/2018-08-22-17:07-5(soft+)-mean-2(lin,soft)/5(soft+)-mean-2(lin,soft)-{}'
 SAVE_CHK_POINT = True
-SAVE_CHK_POINT_STEP = 10000
+SAVE_CHK_POINT_STEP = 20000
 SUMMARY_LV = 2
 SUMMARY_STEP = 700
 SAVE_STRATEGY = BY_STEP
@@ -42,7 +46,7 @@ if MODE == EVAL:
 
 def main():
 
-    dataset = ThuDataset("bigdata/log_normalized_data/{}/", MODE)
+    dataset = ThuDataset("bigdata/log_minmax_data/{}/", MODE)
     oinputs, otargets = dataset.get_data()
     # reduce columns
     # reduced_inputs = np.zeros([np.shape(oinputs)[0],7500,2,1])
@@ -68,7 +72,10 @@ def main():
     if SUMMARY_LV and MODE != EVAL:
         summary_writer = tf.summary.FileWriter(SUMMARY_PATH, tf.get_default_graph())
 
-    with tf.Session() as sess:
+    config = tf.ConfigProto()
+    # config.log_device_placement = True
+
+    with tf.Session(config=config) as sess:
         if RESTORE_CHK_POINT:
             if not RESTORE_PART:
                 saver.restore(sess, RESTORE_CHK_POINT_PATH)
@@ -89,7 +96,8 @@ def main():
                 out = sess.run(fetches)
 
                 if (i+1) % 100 == 0:
-                    print('step: {: >7},\t loss: {:.5E}'.format(out['global_step'], out['loss']))
+                    print('step: {: >7},\t loss: {:.5E}\t({:.5E})'.format(
+                        out['global_step'], out['regularized_loss'], out['loss']))
                 if (i+1) % SUMMARY_STEP == 0:
                     if SUMMARY_LV:
                         summary_writer.add_summary(out['summary_all'], global_step=out['global_step'])
@@ -132,8 +140,11 @@ def main():
 
 
 if __name__ == '__main__':
-    # for i in range(1210000,2200001,10000):
-    #     RESTORE_CHK_POINT_PATH = \
-    #         'bigdata/pooled_conv2d_model_375s/checkpoints/2018-08-20-18:02-3(tanh)/3(tanh)-{}'.format(i)
-    #     tf.reset_default_graph()
-    main()
+    if MODE == TRAIN:
+        main()
+    elif MODE == EVAL:
+        O_RESTORE_CHK_POINT_PATH = RESTORE_CHK_POINT_PATH
+        for i in range(*EVAL_RANGE):
+            RESTORE_CHK_POINT_PATH = O_RESTORE_CHK_POINT_PATH.format(i)
+            main()
+            tf.reset_default_graph()
