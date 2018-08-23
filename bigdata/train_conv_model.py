@@ -1,5 +1,5 @@
 import tensorflow as tf
-import copy
+from matplotlib import pyplot as plt
 import numpy as np
 from bigdata.data.thu_dataset import ThuDataset
 from bigdata.utils import *
@@ -10,24 +10,21 @@ from bigdata import conv_model
 # ===================================== SETTINGS ======================================= #
 date = format_date()
 MODEL = "pooled_conv2d_model_375sd"
-note = '5(soft+)-mean-1(lin+soft)LR4e-4'
+note = '5(soft+)-mean-1(soft+)LR6e-4'
 MODE = EVAL
-LR = 0.0004
+LR = 0.0006
 LR_DECAY = 1
-BATCH_SIZE = 35
-STEPS = 100000
+BATCH_SIZE = 12
+STEPS = 3000000
 RESTORE_CHK_POINT = True
-KEEP_RESTORE_DIR = True
+KEEP_RESTORE_DIR = False
 RESTORE_PART = False
 RESTORE_LIST = {'conv1/kernel':'conv1/kernel:0','conv1/bias':'conv1/bias:0',
-                'dense/linear/kernel':'dense/linear/kernel:0',
-                'dense/post_bias':'dense/post_bias:0',
-                'dense/pre_bias':'dense/pre_bias:0',
-                'dense/pre_scale':'dense/pre_scale:0',
-                'dense/post_scale':'dense/post_scale:0'}
-EVAL_RANGE = (1520000,2000001,20000)
+                'outputs/kernel':'dense/linear/kernel:0',
+                'outputs/bias':'dense/post_bias:0'}
+EVAL_RANGE = (1800000,1800001,20000)
 RESTORE_CHK_POINT_PATH = \
-    'bigdata/pooled_conv2d_model_375sd/checkpoints/2018-08-22-22:39-5(soft+)-mean-1(lin+soft)/5(soft+)-mean-1(lin+soft)LR4e-4-{}'
+    'bigdata/pooled_conv2d_model_375sd/checkpoints/2018-08-23-18:06-5(soft+)-mean-1(soft+)LR6e-4/5(soft+)-mean-1(soft+)LR6e-4-{}'
 SAVE_CHK_POINT = True
 SAVE_CHK_POINT_STEP = 20000
 SUMMARY_LV = 2
@@ -96,6 +93,10 @@ def main():
             threads = tf.train.start_queue_runners(coord=coord)
             out = {}
             log_loss_count = np.log2(sess.run(fetches['loss']))
+
+            fig = plt.gcf()
+            fig.show()
+            fig.canvas.draw()
             for i in range(STEPS):
 
                 out = sess.run(fetches)
@@ -103,6 +104,13 @@ def main():
                 if (i+1) % 100 == 0:
                     print('step: {: >7},\t loss: {:.5E}\t({:.5E})'.format(
                         out['global_step'], out['regularized_loss'], out['loss']))
+
+                    fig.clf()
+                    plt.scatter(np.exp(out['targets']), np.exp(out['outputs']))
+                    plt.plot(np.arange(0.3, 1.21, 0.1), np.arange(0.3, 1.21, 0.1))
+                    plt.axis('equal')
+                    fig.canvas.draw()
+
                 if (i+1) % SUMMARY_STEP == 0:
                     if SUMMARY_LV:
                         summary_writer.add_summary(out['summary_all'], global_step=out['global_step'])
@@ -124,7 +132,7 @@ def main():
         elif MODE == EVAL:
             out = sess.run(fetches)
 
-        exp_error = np.exp(out['targets'])-np.exp(out['outputs'])
+        exp_error = np.exp(out['outputs'])-np.exp(out['targets'])
         average_exp_error = np.mean(np.abs(exp_error))
         exp_rmse = np.sqrt(np.mean(np.square(exp_error)))
         print('original input:\n', pretty_print(out['targets']))
@@ -135,6 +143,11 @@ def main():
         print('average exp error:\n{:.10f}'.format(average_exp_error))
         print('RMSE:\n{:.10f}'.format(np.sqrt(out['loss'])))
         print('exp RMSE:\n{:.10f}'.format(exp_rmse))
+
+        plt.scatter(np.exp(out['targets']), np.exp(out['outputs']))
+        plt.plot(np.arange(0.3, 1.21, 0.1), np.arange(0.3, 1.21, 0.1))
+        plt.axis('equal')
+        plt.show()
 
         if MODE == EVAL:
             path, file = RESTORE_CHK_POINT_PATH.rsplit('/', 1)
