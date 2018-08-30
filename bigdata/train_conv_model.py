@@ -5,28 +5,29 @@ from bigdata.data.thu_dataset import ThuDataset
 from bigdata.utils import *
 from bigdata.constants import *
 from bigdata import conv_model
-
+# TODO
+# delta
 
 # ===================================== SETTINGS ======================================= #
 date = format_date()
-MODEL = "pooled_conv2d_model_375sd"
-note = '5(soft+)-mean-1(soft+)LR6e-4'
-MODE = EVAL
-LR = 0.0006
-LR_DECAY = 1
-BATCH_SIZE = 12
-STEPS = 3000000
-RESTORE_CHK_POINT = True
+MODEL = "pooled_conv2d_model_375s"
+note = '5(1)-40(2)-6(2)-noised'
+MODE = TRAIN
+LR = 0.001
+LR_DECAY = 0.95
+BATCH_SIZE = None
+STEPS = 500000
+RESTORE_CHK_POINT = False
 KEEP_RESTORE_DIR = False
 RESTORE_PART = False
 RESTORE_LIST = {'conv1/kernel':'conv1/kernel:0','conv1/bias':'conv1/bias:0',
-                'outputs/kernel':'dense/linear/kernel:0',
-                'outputs/bias':'dense/post_bias:0'}
-EVAL_RANGE = (1800000,1800001,20000)
+                'dense1/kernel':'dense1/kernel:0',
+                'dense1/bias':'dense1/bias:0'}
+EVAL_RANGE = range(10000,500001,10000)
 RESTORE_CHK_POINT_PATH = \
-    'bigdata/pooled_conv2d_model_375sd/checkpoints/2018-08-23-18:06-5(soft+)-mean-1(soft+)LR6e-4/5(soft+)-mean-1(soft+)LR6e-4-{}'
+    'bigdata/pooled_conv2d_model_375s/checkpoints/2018-08-30-22:49-5(1)-40(2)-6(2)-1(1)-noised/5(1)-40(2)-6(2)-1(1)-noised-{}'
 SAVE_CHK_POINT = True
-SAVE_CHK_POINT_STEP = 20000
+SAVE_CHK_POINT_STEP = 10000
 SUMMARY_LV = 2
 SUMMARY_STEP = 1000
 SAVE_STRATEGY = BY_STEP
@@ -62,7 +63,7 @@ def main():
     graph = tf.get_default_graph()
 
     if SAVE_CHK_POINT or RESTORE_CHK_POINT:
-        max_to_keep = 10 if SAVE_STRATEGY == BY_LOSS else 100
+        max_to_keep = 30 if SAVE_STRATEGY == BY_LOSS else 100
         saver = tf.train.Saver(max_to_keep=max_to_keep)
     if RESTORE_PART:
         assert RESTORE_LIST, 'No RESTORE_LIST specified'
@@ -108,7 +109,9 @@ def main():
                     fig.clf()
                     plt.scatter(np.exp(out['targets']), np.exp(out['outputs']))
                     plt.plot(np.arange(0.3, 1.21, 0.1), np.arange(0.3, 1.21, 0.1))
-                    plt.axis('equal')
+                    plt.plot(np.arange(0.3, 1.21, 0.1), np.arange(0.1, 1.01, 0.1), 'r')
+                    plt.plot(np.arange(0.3, 1.21, 0.1), np.arange(0.5, 1.41, 0.1), 'r')
+                    plt.axis([0.2, 1.4, 0.2, 1.4])
                     fig.canvas.draw()
 
                 if (i+1) % SUMMARY_STEP == 0:
@@ -122,11 +125,19 @@ def main():
                     log_loss = np.ceil(np.log2(out['loss']))
                     if log_loss < log_loss_count:
                         log_loss_count = log_loss
-                        saver.save(sess, CHECKPOINT_PATH + '/conv_model', global_step=out['global_step'])
+                        saver.save(sess, '{}/{}'.format(CHECKPOINT_PATH, note), global_step=out['global_step'])
                         print('saved checkpoint of log10(loss) = {}'.format(log_loss_count))
 
+            fig.clf()
+            plt.scatter(np.exp(out['targets']), np.exp(out['outputs']))
+            plt.plot(np.arange(0.3, 1.21, 0.1), np.arange(0.3, 1.21, 0.1))
+            plt.plot(np.arange(0.3, 1.21, 0.1), np.arange(0.1, 1.01, 0.1), 'r')
+            plt.plot(np.arange(0.3, 1.21, 0.1), np.arange(0.5, 1.41, 0.1), 'r')
+            plt.axis([0.2, 1.4, 0.2, 1.4])
+            plt.show()
+
             if SAVE_STRATEGY == BY_LOSS:  # final save
-                saver.save(sess, CHECKPOINT_PATH + '/conv_model', global_step=out['global_step'])
+                saver.save(sess, '{}/{}'.format(CHECKPOINT_PATH, note), global_step=out['global_step'])
             coord.request_stop()
             coord.join(threads)
         elif MODE == EVAL:
@@ -144,10 +155,13 @@ def main():
         print('RMSE:\n{:.10f}'.format(np.sqrt(out['loss'])))
         print('exp RMSE:\n{:.10f}'.format(exp_rmse))
 
-        plt.scatter(np.exp(out['targets']), np.exp(out['outputs']))
-        plt.plot(np.arange(0.3, 1.21, 0.1), np.arange(0.3, 1.21, 0.1))
-        plt.axis('equal')
-        plt.show()
+        # fig = plt.gcf()
+        # fig.show()
+        # fig.canvas.draw()
+        # plt.scatter(np.exp(out['targets']), np.exp(out['outputs']))
+        # plt.plot(np.arange(0.3, 1.21, 0.1), np.arange(0.3, 1.21, 0.1))
+        # plt.axis('equal')
+        # plt.show()
 
         if MODE == EVAL:
             path, file = RESTORE_CHK_POINT_PATH.rsplit('/', 1)
@@ -162,7 +176,7 @@ if __name__ == '__main__':
         main()
     elif MODE == EVAL:
         O_RESTORE_CHK_POINT_PATH = RESTORE_CHK_POINT_PATH
-        for i in range(*EVAL_RANGE):
+        for i in EVAL_RANGE:
             RESTORE_CHK_POINT_PATH = O_RESTORE_CHK_POINT_PATH.format(i)
             main()
             tf.reset_default_graph()
