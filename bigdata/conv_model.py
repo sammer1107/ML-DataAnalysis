@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 from bigdata.data.thu_dataset import ThuDataset
 from bigdata import ops
 
@@ -268,21 +269,35 @@ def pooled_conv2d_model_375s(inputs, targets, learning_rate, batch_size, learnin
     net = tf.layers.average_pooling2d(inputs, pool_size=[375, 1],
                                       strides=[375, 1],
                                       name='pooling')
+    if mode == 'train':
+        net = tf.add(net, tf.truncated_normal(net.shape, stddev=1e-2), name='noise')
     layer_outputs['pooling'] = net
 
     net = tf.layers.conv2d(net, filters=5,
                            kernel_size=[4,1],
                            strides=[4,1],
-                           activation=tf.nn.softplus,
+                           activation=tf.nn.tanh,
                            name='conv1',
-                           kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=5e-4))
+                           use_bias=True,
+                           kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=1e-4))
 
     layer_outputs['conv1'] = net
+
+
+    net = ops.hard_dropout(net, 2, axis=1, training=True if mode=='train' else False)
+
 
     net = tf.reduce_mean(net, axis=[1], name='mean')
     layer_outputs['mean'] = net
 
     net = tf.layers.flatten(net)
+    net = tf.layers.dense(net, 40, activation=tf.nn.tanh, name='dense1',
+                          kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=2e-4))
+    layer_outputs['dense1'] = net
+    net = tf.layers.dense(net, 6, activation=tf.nn.tanh, name='dense2',
+                          kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=2e-4))
+    layer_outputs['dense2'] = net
+
     outputs = tf.layers.dense(net, 1, name='outputs', activation=None)
     outputs = tf.reshape(outputs,[-1])
 
@@ -300,7 +315,7 @@ def pooled_conv2d_model_375s(inputs, targets, learning_rate, batch_size, learnin
                                                    decay_rate=learning_rate_decay,
                                                    name='decayed_learning_rate',
                                                    staircase=True)
-        opt = tf.train.RMSPropOptimizer(learning_rate, decay=0.8, centered=True)
+        opt = tf.train.RMSPropOptimizer(learning_rate, decay=0.8, centered=True, momentum=0.7)
         gradients = opt.compute_gradients(loss)
         train_op = opt.apply_gradients(gradients, global_step=global_step)
         fetches['global_step'] = global_step
@@ -315,7 +330,7 @@ def pooled_conv2d_model_375s(inputs, targets, learning_rate, batch_size, learnin
                 # Conv1 Image
                 tf.summary.image('Conv1_0', tf.expand_dims(layer_outputs['conv1'][:,:,:,0], axis=3), max_outputs=1, family='outputs')
                 tf.summary.image('Conv1_1', tf.expand_dims(layer_outputs['conv1'][:,:,:,1], axis=3), max_outputs=1, family='outputs')
-                tf.summary.image('Conv1_2', tf.expand_dims(layer_outputs['conv1'][:,:,:,2], axis=3), max_outputs=1, family='outputs')
+                # tf.summary.image('Conv1_2', tf.expand_dims(layer_outputs['conv1'][:,:,:,2], axis=3), max_outputs=1, family='outputs')
                 # conv1
                 with tf.variable_scope('conv1', reuse=True):
                     kernel = tf.get_variable('kernel')
@@ -365,7 +380,7 @@ def pooled_conv2d_model_375sd(inputs, targets, learning_rate, batch_size, learni
     net = tf.layers.conv2d(net, filters=5,
                            kernel_size=[4,1],
                            strides=[4,1],
-                           activation=tf.nn.softplus,
+                           activation=None,
                            name='conv1',
                            trainable=True)
     # kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=1e-4),
@@ -376,31 +391,17 @@ def pooled_conv2d_model_375sd(inputs, targets, learning_rate, batch_size, learni
     layer_outputs['mean'] = net
 
     net = tf.layers.flatten(net)
-    with tf.variable_scope("dense"):
-        # pre_bias = tf.get_variable('pre_bias', shape=[1], dtype=tf.float32,
-        #                            initializer=tf.initializers.zeros)
-        pre_scale = tf.get_variable('pre_scale', shape=[1], dtype=tf.float32)
-        post_scale = tf.get_variable('post_scale', shape=[1], dtype=tf.float32)
-        post_bias = tf.get_variable('post_bias', shape=[1], dtype=tf.float32,
-                                   initializer=tf.initializers.zeros,
-                                    trainable=True)
 
-        linear = tf.layers.dense(net, 1, activation=None, name='linear', use_bias=True,
-                                 trainable=True)
-        softsign = linear * pre_scale
-        softsign = tf.nn.softsign(softsign, name='softsign')
-        softsign = tf.multiply(softsign, post_scale, name='post_scale')
+    net = tf.layers.dense(net, 1, activation=tf.exp,
+                          name='exp')
 
-        outputs = tf.nn.bias_add(softsign, post_bias, name='output')
-        layer_outputs['dense_linear'] = linear
-        layer_outputs['dense_softsign'] = softsign
+    outputs = tf.layers.dense(net, 1, activation=None, name='output')
+    outputs = tf.reshape(outputs, [-1])
 
     layer_outputs['dense'] = outputs
 
-    outputs = tf.reshape(outputs, [-1])
-
     fetches['outputs'] = outputs
-    fetches['relative_error'] = (outputs - targets) / targets
+    # fetches['relative_error'] = (outputs - targets) / targets
     loss = tf.losses.mean_squared_error(outputs, targets)
     fetches['loss'] = loss
     loss = loss + tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
@@ -409,12 +410,12 @@ def pooled_conv2d_model_375sd(inputs, targets, learning_rate, batch_size, learni
 
 
     if mode == 'train':
-        global_step = tf.Variable(0, trainable=False)  # , name='global_step')
+        global_step = tf.Variable(0, trainable=False, name='global_step')
         learning_rate = tf.train.exponential_decay(learning_rate, global_step, decay_steps=10000,
                                                    decay_rate=learning_rate_decay,
                                                    name='decayed_learning_rate',
                                                    staircase=True)
-        opt = tf.train.RMSPropOptimizer(learning_rate, decay=0.9, momentum=0.5)
+        opt = tf.train.RMSPropOptimizer(learning_rate, decay=0.9, momentum=0.5, centered=True)
         gradients = opt.compute_gradients(loss)
         train_op = opt.apply_gradients(gradients, global_step=global_step)
         fetches['global_step'] = global_step
@@ -985,6 +986,96 @@ def pooled_pattern_model(inputs, targets, learning_rate, batch_size, learning_ra
     return fetches
 
 
+def minmax_model(inputs, targets, learning_rate, batch_size, learning_rate_decay=0.97, mode='train', summary_lv=False):
+    """This is a new experimental model for Thu Dataset,
+    this also uses a big pooling first in order to simplify the feature.
+    the input should be in shape [batch_size, 7500, 4, 1] preprocessed from thu_dataset.py.
+    no detailed doc yet """
+
+    assert mode in ['train', 'eval'], "mode should be one of ['train', 'eval']"
+
+    if mode == 'train' and (batch_size != None):
+        inputs, targets = tf.train.shuffle_batch([inputs, targets], batch_size=batch_size,
+                                                 capacity=batch_size*10 if batch_size>20 else 160,
+                                                 min_after_dequeue=batch_size*5 if batch_size>20 else 80,
+                                                 enqueue_many=True,
+                                                 name='batch',
+                                                 allow_smaller_final_batch=False)
+
+    fetches = {}
+    layer_outputs = {}
+    fetches['targets'] = targets
+    net = tf.layers.average_pooling2d(inputs, pool_size=[250, 1],
+                                      strides=[250, 1],
+                                      name='pooling')
+    layer_outputs['pooling'] = net
+
+    avg = tf.layers.average_pooling2d(net, pool_size=[6,1],
+                                      strides=[6,1],
+                                      name='average')
+    max = tf.layers.max_pooling2d(net, pool_size=[6,1],
+                                      strides=[6,1],
+                                      name='max')
+    min = -tf.layers.max_pooling2d(-net, pool_size=[6,1],
+                                      strides=[6,1],
+                                      name='min')
+    dev = max - min
+    net = tf.concat([avg, dev], axis=3)
+    net = tf.layers.conv2d(net, 2,
+                           kernel_size=[5,1],
+                           strides=[1,1],
+                           activation=None,
+                           use_bias=False,
+                           name='conv1')
+    net = tf.layers.conv2d(net, 1,
+                           kernel_size=[1,4],
+                           strides=[1,1],
+                           activation=None,
+                           use_bias=False,
+                           name='conv2')
+    net = tf.layers.flatten(net)
+
+    outputs = tf.layers.dense(net, 1, name='outputs', activation=None)
+                              # kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=1e-4))
+    outputs = tf.reshape(outputs,[-1])
+
+    fetches['outputs'] = outputs
+    fetches['relative_error'] = (outputs - targets) / targets
+    loss = tf.losses.mean_squared_error(outputs, targets)
+    fetches['loss'] = loss
+    loss += tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
+    fetches['regularized_loss'] = loss
+    # loss = tf.reduce_mean(tf.abs(outputs - targets))
+
+    if mode == 'train':
+        global_step = tf.Variable(0, trainable=False)  # , name='global_step')
+        learning_rate = tf.train.exponential_decay(learning_rate, global_step, decay_steps=10000,
+                                                   decay_rate=learning_rate_decay,
+                                                   name='decayed_learning_rate',
+                                                   staircase=True)
+        opt = tf.train.RMSPropOptimizer(learning_rate, decay=0.8, centered=True, momentum=0.6)
+        gradients = opt.compute_gradients(loss)
+        train_op = opt.apply_gradients(gradients, global_step=global_step)
+        fetches['global_step'] = global_step
+        fetches['train_op'] = train_op
+
+        if summary_lv:
+            tf.summary.scalar('learning_rate', learning_rate)
+            tf.summary.scalar('loss', loss)
+            if summary_lv >= 2:
+                # layer outputs
+                for key, tensor in layer_outputs.items():
+                    tf.summary.histogram(tensor.name, tensor, family='outputs')
+                # trainable variables
+                for tensor in tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES):
+                    tf.summary.histogram(tensor.name, tensor, family='trainables')
+                # gradients
+                for gradient, tensor in gradients:
+                    tf.summary.histogram("{}_gradient".format(tensor.name), gradient, family='gradients')
+
+            fetches['summary_all'] = tf.summary.merge_all()
+
+    return fetches
 # from bigdata.data.thu_dataset import ThuDataset
 # dataset = ThuDataset('bigdata/log_normalized_data/{}/')
 # inputs, targets = dataset.get_data()
