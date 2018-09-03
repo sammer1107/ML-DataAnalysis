@@ -9,7 +9,7 @@ class Dataset(metaclass=ABCMeta):
     """ __init__:
         path is the prefix of the file and will be formatted by subset"""
     def __init__(self, path, subset='train'):
-        assert subset in ['train', 'eval'], "subset should be one of ['train', 'eval']"
+        # assert subset in ['train', 'eval'], "subset should be one of ['train', 'eval']"
         self.path = path.format(subset)
         self.subset = subset
 
