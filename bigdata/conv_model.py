@@ -273,36 +273,37 @@ def pooled_conv2d_model_375s(inputs, targets, learning_rate, batch_size, learnin
         net = tf.add(net, tf.truncated_normal(net.shape, stddev=5e-3), name='noise')
     layer_outputs['pooling'] = net
 
+    kernel_constraint = tf.keras.constraints.MaxNorm(max_value=1.8)
     net = tf.layers.conv2d(net, filters=5,
                            kernel_size=[4,1],
                            strides=[4,1],
                            activation=tf.nn.tanh,
                            name='conv1',
                            use_bias=True,
-                           kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=1e-4))
+                           kernel_constraint=kernel_constraint)
 
     layer_outputs['conv1'] = net
 
-
     net = ops.hard_dropout(net, 3, axis=1, training=True if mode=='train' else False)
-
 
     net = tf.reduce_mean(net, axis=[1], name='mean')
     layer_outputs['mean'] = net
 
     net = tf.layers.flatten(net)
     net = tf.layers.dense(net, 40, activation=tf.nn.tanh, name='dense1',
-                          kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=1e-4))
+                          kernel_constraint=kernel_constraint)
     layer_outputs['dense1'] = net
     net = tf.layers.dense(net, 6, activation=tf.nn.tanh, name='dense2',
-                          kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=1e-4))
+                          kernel_constraint=kernel_constraint)
     layer_outputs['dense2'] = net
 
     outputs = tf.layers.dense(net, 1, name='outputs', activation=None)
     outputs = tf.reshape(outputs,[-1])
-
     fetches['outputs'] = outputs
+    # outputs = tf.exp(tf.reshape(outputs,[-1]))
+    # targets = tf.exp(targets)
     fetches['relative_error'] = (outputs - targets) / targets
+
     loss = tf.losses.mean_squared_error(outputs, targets)
     fetches['loss'] = loss
     loss += tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
@@ -315,7 +316,7 @@ def pooled_conv2d_model_375s(inputs, targets, learning_rate, batch_size, learnin
                                                    decay_rate=learning_rate_decay,
                                                    name='decayed_learning_rate',
                                                    staircase=True)
-        opt = tf.train.RMSPropOptimizer(learning_rate, decay=0.8, centered=True, momentum=0.5)
+        opt = tf.train.AdamOptimizer(learning_rate)
         gradients = opt.compute_gradients(loss)
         train_op = opt.apply_gradients(gradients, global_step=global_step)
         fetches['global_step'] = global_step
