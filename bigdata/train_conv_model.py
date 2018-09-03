@@ -1,35 +1,43 @@
 import tensorflow as tf
+from tensorflow.python.client import timeline
 from matplotlib import pyplot as plt
 import numpy as np
 from bigdata.data.thu_dataset import ThuDataset
 from bigdata.utils import *
 from bigdata.constants import *
 from bigdata import conv_model
+
 # TODO
-# delta
+
+# cross validation
+# ['0.5883', '0.5549', '0.3477', '0.6670', '0.3246'] 1 x
+# ['0.7471', '1.0736', '0.6547', '0.3708', '0.9280'] 2 x
+# ['0.4148', '0.8454', '0.4922', '0.7149', '0.4189'] Best
+# ['0.4251', '0.5747', '0.5047', '0.5636', '0.4737'] 4 x
+
 
 # ===================================== SETTINGS ======================================= #
 date = format_date()
 MODEL = "pooled_conv2d_model_375s"
-note = '5(1)-40(2)-6(2)-noised'
+note = 'constraint-1.8'
 MODE = TRAIN
-LR = 0.001
-LR_DECAY = 0.95
+LR = 0.004
+LR_DECAY = 1
 BATCH_SIZE = None
-STEPS = 500000
+STEPS = 200000
 RESTORE_CHK_POINT = False
-KEEP_RESTORE_DIR = False
+KEEP_RESTORE_DIR = True
 RESTORE_PART = False
 RESTORE_LIST = {'conv1/kernel':'conv1/kernel:0','conv1/bias':'conv1/bias:0',
                 'dense1/kernel':'dense1/kernel:0',
                 'dense1/bias':'dense1/bias:0'}
-EVAL_RANGE = range(10000,500001,10000)
+EVAL_RANGE = range(10000,220001,10000)
 RESTORE_CHK_POINT_PATH = \
-    'bigdata/pooled_conv2d_model_375s/checkpoints/2018-08-30-22:49-5(1)-40(2)-6(2)-1(1)-noised/5(1)-40(2)-6(2)-1(1)-noised-{}'
+    'bigdata/pooled_conv2d_model_375s/checkpoints/2018-09-03-10:36-constraint-exp/constraint-exp-{}'
 SAVE_CHK_POINT = True
 SAVE_CHK_POINT_STEP = 10000
 SUMMARY_LV = 2
-SUMMARY_STEP = 1000
+SUMMARY_STEP = 500
 SAVE_STRATEGY = BY_STEP
 # ===================================================================================== #
 
@@ -74,8 +82,8 @@ def main():
     if SUMMARY_LV and MODE != EVAL:
         summary_writer = tf.summary.FileWriter(SUMMARY_PATH, tf.get_default_graph())
 
-    config = tf.ConfigProto()
-    # config.log_device_placement = True
+    config = tf.ConfigProto(log_device_placement=True if MODE == 'train' else False)
+    # config.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_1
 
     with tf.Session(config=config) as sess:
         if RESTORE_CHK_POINT:
@@ -89,7 +97,12 @@ def main():
                 print(RESTORE_LIST)
         else:
             sess.run(tf.global_variables_initializer())
+
         if MODE == TRAIN:
+            # timeline trace
+            options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+            run_metadata = tf.RunMetadata()
+
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(coord=coord)
             out = {}
@@ -100,8 +113,9 @@ def main():
             fig.canvas.draw()
             for i in range(STEPS):
 
-                out = sess.run(fetches)
-
+                out = sess.run(fetches, options=options,
+                               run_metadata=run_metadata)
+                # out = sess.run(fetches)
                 if (i+1) % 100 == 0:
                     print('step: {: >7},\t loss: {:.5E}\t({:.5E})'.format(
                         out['global_step'], out['regularized_loss'], out['loss']))
@@ -135,6 +149,11 @@ def main():
             plt.plot(np.arange(0.3, 1.21, 0.1), np.arange(0.5, 1.41, 0.1), 'r')
             plt.axis([0.2, 1.4, 0.2, 1.4])
             plt.show()
+
+            fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+            chrome_trace = fetched_timeline.generate_chrome_trace_format()
+            with open(CHECKPOINT_PATH+'/timeline.json', 'w') as f:
+                f.write(chrome_trace)
 
             if SAVE_STRATEGY == BY_LOSS:  # final save
                 saver.save(sess, '{}/{}'.format(CHECKPOINT_PATH, note), global_step=out['global_step'])
