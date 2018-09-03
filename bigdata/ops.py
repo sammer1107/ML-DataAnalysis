@@ -18,8 +18,10 @@ def hard_dropout(x, num_drop, axis=-1, training=False):
     assert axis >= 0
 
     shape = [int(i) for i in x.shape]
+    # length of dropout mask
     length = shape[axis]
     del shape[axis]
+    # number of dropout mask (for each example, column and channel)
     num_repeat = np.prod(shape)
     masks = []
     mask = np.concatenate([np.ones(length - num_drop, dtype=np.float32) * length / (length - num_drop),
@@ -28,6 +30,7 @@ def hard_dropout(x, num_drop, axis=-1, training=False):
         for i in range(num_repeat):
             masks.append(tf.random_shuffle(mask))
         masks = tf.stack(masks, axis=0)
+        # reshape and transpose the masks to the shape of input tensor
         masks = tf.reshape(masks, [*shape, length])
         permutation = list(range(0,len(shape)))
         permutation.insert(axis, len(shape))
@@ -35,27 +38,25 @@ def hard_dropout(x, num_drop, axis=-1, training=False):
         x = masks * x
     return x
 
-
-# def crop_dropout(x, num_drop, axis=-1, training=False):
+# awfully slow
+# def hard_dropout_v2(x, num_drop, axis, training=False):
 #     if not training:
 #         return x
 #
 #     shape = [int(i) for i in x.shape]
+#     num_repeat = int(np.prod(shape)/shape[axis])
 #     length = shape[axis]
-#     del shape[axis]
-#     num_repeat = np.prod(shape)
-#     masks = []
-#     mask = np.concatenate([np.ones(length - num_drop, dtype=np.float32),
-#                            np.zeros(num_drop, dtype=np.float32)])
-#     mask = mask.astype(np.bool)
-#     with tf.name_scope('hard_dropout'):
-#         for i in range(num_repeat):
-#             masks.append(tf.random_shuffle(mask))
-#         masks = tf.stack(masks, axis=0)
-#         masks = tf.reshape(masks, [*shape, length])
-#         permutation = list(range(0, len(shape)))
-#         permutation.insert(axis, len(shape))
-#         masks = tf.transpose(masks, permutation)
-#         x = tf.boolean_mask(x, masks)
-#     print(x.shape)
+#     masks = [[0]*num_drop + [length / (length - num_drop)]*(length-num_drop)]*num_repeat
+#
+#     with tf.name_scope('hard_dropout_v2'):
+#         masks = tf.constant(masks, dtype=tf.float32, name='dropout_mask')
+#         masks = tf.map_fn(tf.random_shuffle, masks)
+#
+#         shape[axis], shape[-1] = shape[-1], shape[axis]
+#         masks = tf.reshape(masks, shape)
+#
+#         permutation = list(range(len(shape)))
+#         permutation[axis], permutation[-1] = permutation[-1], permutation[axis]
+#         x = tf.multiply(tf.transpose(masks, permutation), x)
+#
 #     return x
